@@ -54,3 +54,34 @@ bash scripts/run-custom-mutator-smoke.sh 1
 - Whether the py-AFL harness is only a smoke test or part of the evaluation.
 - How many APKs should be used for the final corpus.
 - Whether mutated APKs should be saved for post-analysis.
+
+## Next Meeting Plan
+
+- Build many v2 mutators with compile-time strategy flags instead of relying only
+  on runtime mode selection. Runtime mode remains useful for smoke/debug, but the
+  long experiments should use one locked `.so` per strategy so the results are
+  attributable.
+- Keep AFL seeds as path-files only. Extra metadata in the seed is not useful for
+  the current custom mutator because AFL mutates the seed bytes, while the mutator
+  only needs the APK path. If metadata is needed later, keep it in a sidecar
+  manifest/CSV instead of inside the AFL seed.
+- Run long campaigns on Harel's laptop to verify AFL stability over time.
+- Expand the APK corpus with small APKs, preferably under 1 MB each.
+- Compare one 72-hour run against six 12-hour runs. Aggregate:
+  - generated queue entries / seeds
+  - hangs
+  - crashes
+  - odd ZIP/APK/tool results
+- Compare mutated APKs against their originals to understand what changed and
+  which changes might be exploitable.
+- Ask Aidan about additional target programs/tools that should consume mutated
+  APKs.
+
+## New Tooling For The Next Phase
+
+- `src/compile_afl_mutator_variants.sh` builds locked v2 `.so` files under
+  `build/mutators/`, one per strategy/region configuration.
+- `scripts/run-campaign-comparison.sh` runs the planned `72h` vs `6 x 12h`
+  campaign shape. It uses AFL's time limit, so runs stop automatically.
+- `scripts/diff-mutated-apk.py` compares an original APK to a mutant using raw
+  byte ranges and ZIP metadata, even when the mutant is not a valid ZIP.

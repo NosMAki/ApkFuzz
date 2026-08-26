@@ -13,6 +13,20 @@ AFLPP_DIR=~/AFLplusplus bash compile_afl_mutator_v2.sh
 # -> build/cm-ApkVulFuzz2.so   (+ build/mut2-standalone for offline testing)
 ```
 
+For long comparisons, build one locked `.so` per strategy:
+
+```bash
+cd src
+AFLPP_DIR=~/AFLplusplus bash compile_afl_mutator_variants.sh
+# -> build/mutators/cm-ApkVulFuzz2-*.so
+```
+
+These variants use compile-time flags such as `APKFUZZ_COMPILED_MODE`,
+`APKFUZZ_COMPILED_MAX_FLIPS`, `APKFUZZ_COMPILED_SEGMENT_OFFSET`, and
+`APKFUZZ_COMPILED_SEGMENT_SIZE`. They are built with
+`APKFUZZ_LOCK_COMPILED_MODE=1`, so the strategy is fixed for the campaign and
+cannot be changed accidentally through the environment.
+
 ## Use with AFL
 
 ```bash
@@ -56,6 +70,17 @@ Default is `manifest-bitflip`, which reproduces the baseline behavior.
 | `APKFUZZ_LOG_FILE` | log destination | `apkfuzz_mutator.log` |
 | `APKFUZZ_OUT_DIR` | write each transient mutant here instead of next to the seed APK — keeps `Evaluation-SSBSE-2026/apk/` clean (created if missing) | next to seed |
 | `APKFUZZ_SAVE_DIR` | if set, also copy every mutant APK into this dir (survives cleanup, so post-run tools have specimens) | off |
+
+## Runtime mode vs compiled variants
+
+`build/cm-ApkVulFuzz2.so` is flexible: `APKFUZZ_MUTATOR_MODE` can select a mode
+when the AFL process starts. This is useful for debugging and short smoke tests.
+
+For real comparisons, prefer the locked variants in `build/mutators/`. One AFL
+campaign should use one compiled mutator, then the next campaign should use a
+different compiled mutator. Do not change strategies during a single campaign;
+otherwise crashes, hangs, and generated seeds cannot be attributed cleanly to one
+strategy.
 
 ## Log line format
 

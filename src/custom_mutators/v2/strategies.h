@@ -1,8 +1,10 @@
 /*
  * strategies.h - Selectable mutation strategies for the multi-strategy mutator.
  *
- * Strategy is chosen at runtime via APKFUZZ_MUTATOR_MODE. Region and intensity
- * are tunable via APKFUZZ_SEGMENT_OFFSET / APKFUZZ_SEGMENT_SIZE / APKFUZZ_MAX_FLIPS.
+ * Strategy can be chosen at runtime via APKFUZZ_MUTATOR_MODE, or fixed at
+ * compile time with APKFUZZ_COMPILED_MODE + APKFUZZ_LOCK_COMPILED_MODE. Region
+ * and intensity are tunable via APKFUZZ_SEGMENT_OFFSET / APKFUZZ_SEGMENT_SIZE /
+ * APKFUZZ_MAX_FLIPS, with compile-time defaults for locked variants.
  * Opt-in per-fuzz logging via APKFUZZ_LOG=1 (+ optional APKFUZZ_LOG_FILE).
  */
 #ifndef APKFUZZ_STRATEGIES_H

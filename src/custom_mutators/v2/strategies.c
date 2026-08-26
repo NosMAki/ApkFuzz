@@ -7,6 +7,26 @@
 #include <string.h>
 #include <time.h>
 
+#ifndef APKFUZZ_COMPILED_MODE
+#define APKFUZZ_COMPILED_MODE "manifest-bitflip"
+#endif
+
+#ifndef APKFUZZ_LOCK_COMPILED_MODE
+#define APKFUZZ_LOCK_COMPILED_MODE 0
+#endif
+
+#ifndef APKFUZZ_COMPILED_SEGMENT_OFFSET
+#define APKFUZZ_COMPILED_SEGMENT_OFFSET -1
+#endif
+
+#ifndef APKFUZZ_COMPILED_SEGMENT_SIZE
+#define APKFUZZ_COMPILED_SEGMENT_SIZE -1
+#endif
+
+#ifndef APKFUZZ_COMPILED_MAX_FLIPS
+#define APKFUZZ_COMPILED_MAX_FLIPS -1
+#endif
+
 /* ------------------------------------------------------------------ */
 /* Mode name <-> enum                                                  */
 /* ------------------------------------------------------------------ */
@@ -51,6 +71,11 @@ void apkfuzz_cfg_load(apkfuzz_cfg_t *cfg) {
     memset(cfg, 0, sizeof(*cfg));
 
     const char *mode_s = getenv("APKFUZZ_MUTATOR_MODE");
+#if APKFUZZ_LOCK_COMPILED_MODE
+    mode_s = APKFUZZ_COMPILED_MODE;
+#else
+    if (!mode_s || !*mode_s) mode_s = APKFUZZ_COMPILED_MODE;
+#endif
     cfg->mode = apkfuzz_mode_from_string(mode_s);
     if (cfg->mode == MODE_INVALID) {
         fprintf(stderr,
@@ -59,9 +84,9 @@ void apkfuzz_cfg_load(apkfuzz_cfg_t *cfg) {
         cfg->mode = MODE_MANIFEST_BITFLIP;
     }
     cfg->mode_name  = apkfuzz_mode_name(cfg->mode);
-    cfg->seg_offset = env_long("APKFUZZ_SEGMENT_OFFSET", -1);
-    cfg->seg_size   = env_long("APKFUZZ_SEGMENT_SIZE",   -1);
-    cfg->max_flips  = env_long("APKFUZZ_MAX_FLIPS",      -1);
+    cfg->seg_offset = env_long("APKFUZZ_SEGMENT_OFFSET", APKFUZZ_COMPILED_SEGMENT_OFFSET);
+    cfg->seg_size   = env_long("APKFUZZ_SEGMENT_SIZE",   APKFUZZ_COMPILED_SEGMENT_SIZE);
+    cfg->max_flips  = env_long("APKFUZZ_MAX_FLIPS",      APKFUZZ_COMPILED_MAX_FLIPS);
 
     const char *lg = getenv("APKFUZZ_LOG");
     cfg->do_log = (lg && *lg && strcmp(lg, "0") != 0) ? 1 : 0;

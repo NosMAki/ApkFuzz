@@ -35,6 +35,7 @@ src/custom_mutators/v2/mut2-standalone
 
 # Campaign / analysis outputs (run-corpus-smoke.sh, comparison, tool tester)
 afl-corpus-smoke-*/
+campaign-*/
 cmp-*/
 mutants-*/
 crashers-*/
