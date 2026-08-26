@@ -23,6 +23,7 @@ instead of being rejected instantly.
 - [8. Verify your setup (2-minute test)](#8-verify-your-setup-2-minute-test)
 - [9. Key finding: fuzzing multiple APKs](#9-key-finding-fuzzing-multiple-apks)
 - [10. Limitations & notes](#10-limitations--notes)
+- [11. Reproducible campaigns (readiness)](#11-reproducible-campaigns-readiness)
 
 ---
 
@@ -324,3 +325,73 @@ APK**, or make the target's coverage depend on APK content. Details in
 
 *More depth: `docs/FUZZER_OVERVIEW.md` (architecture), `docs/MUTATOR_COMPARISON.md`
 (strategy comparison method), `docs/VERIFICATION_RUNBOOK.md` (verification steps).*
+
+---
+
+## 11. Reproducible campaigns (readiness)
+
+The mutator is **reproducible** and **cheap on disk**, so long runs are
+attributable and repeatable.
+
+### Reproducibility
+
+Randomness is a per-instance xoshiro256++ seeded from AFL's seed (no global
+`rand()`), so:
+
+```
+same AFL seed + same corpus + same mutator  =>  identical mutation sequence
+different seed                              =>  different sequence
+```
+
+This holds across machines and libc versions. Pin the seed with
+`APKFUZZ_AFL_SEED=<n>` (passed to `afl-fuzz -s`); it is recorded in every CSV row
+and in each mutant's log line (`seed=`, `iter=`), so any queue entry or crash can
+be reproduced exactly.
+
+### Cheap disk
+
+Transient mutants are written to tmpfs (`/dev/shm`) and reaped continuously
+(`scripts/reap-scratch.py`), so physical disk I/O stays near zero regardless of
+run length. For post-run analysis set `APKFUZZ_SAVE_DIR=dir`: the mutator saves a
+~200-byte **patch** (origin + byte edits) per mutant instead of a multi-MB APK.
+Reconstruct the exact mutant when you need it:
+
+```bash
+python3 scripts/apply-patch.py path/to/mutant.patch -o mutant.apk --sha256
+```
+
+### Tests (gate every build)
+
+```bash
+bash scripts/run-tests.sh     # reproducibility + all 17 variants; a few seconds
+```
+
+`test_variant_sanity.sh` asserts each locked `.so` only edits the ZIP structure
+its name promises (computed independently from the ZIP layout, not the mutator's
+own log), so a mis-compiled variant can't silently burn a run.
+
+### The two campaign questions (keep them separate)
+
+```bash
+# Q1: does splitting the budget help?  one long run vs many short runs.
+LONG_SECONDS=600 SHORT_SECONDS=100 SHORT_RUNS=6 \
+  scripts/run-duration-comparison.sh          # rehearsal; raise to 259200/43200 for 72h/12h
+# 1x72h vs 6x12h is n=1 vs n=6 -> read it as union-of-coverage. For mean+variance
+# set REPEATS=3 (=> 3x72h vs 18x12h) and budget the machine time.
+
+# Q2: which strategy is best?  loops every locked variant with repeats.
+SECONDS_PER=60 REPEATS=2 \
+  scripts/run-mutator-comparison.sh           # rehearsal; raise SECONDS_PER for real runs
+```
+
+Both write a normalized CSV (`run_id, arm, repeat, mutator, effective_mode, seed,
+metrics…, fallback_count, machine_state, git_sha`), a `machine-state.txt`
+snapshot, and per-run patches. `effective_mode` comes from the mutator itself, so
+a locked variant is reported by what it actually did, not the environment.
+
+### Before the long runs
+
+1. `scripts/run-tests.sh` is green.
+2. Rehearse both scripts (above) and eyeball the CSVs + `machine-state.txt`.
+3. Confirm physical disk I/O stays low (printed in each smoke summary).
+4. Only then raise the durations.
