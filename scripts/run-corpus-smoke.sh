@@ -108,8 +108,15 @@ w0="$(sectors_written || echo 0)"; [ -n "$w0" ] || w0=0
 REAPER_PID=$!
 
 cd "$PROJECT_ROOT"
+# A pinned seed makes the run reproducible (the mutator's RNG is derived from it).
+# Set APKFUZZ_AFL_SEED for campaigns so every run is attributable and repeatable.
+seed_args=()
+if [ -n "${APKFUZZ_AFL_SEED:-}" ]; then
+  seed_args=(-s "$APKFUZZ_AFL_SEED")
+  echo ">> afl seed: $APKFUZZ_AFL_SEED"
+fi
 afl_rc=0
-afl-fuzz -V "$DURATION" -m none -i "$INPUT_DIR" -o "$OUTPUT_DIR" -- \
+afl-fuzz -V "$DURATION" -m none "${seed_args[@]}" -i "$INPUT_DIR" -o "$OUTPUT_DIR" -- \
   "$PYTHON" "$HARNESS" @@ || afl_rc=$?
 
 w1="$(sectors_written || echo "$w0")"; [ -n "$w1" ] || w1="$w0"
@@ -128,9 +135,9 @@ grep -E 'execs_done|execs_per_sec|corpus_count|saved_crashes|saved_hangs|cycles_
 echo
 echo "-- effective mode (from the mutator, authoritative) --"
 if [ -f "$LOG_FILE" ]; then
-  eff="$(grep -oE 'effective_mode=[^ ]+' "$LOG_FILE" | head -1 | cut -d= -f2)"
-  comp="$(grep -oE 'compiled_mode=[^ ]+' "$LOG_FILE" | head -1 | cut -d= -f2)"
-  lock="$(grep -oE 'locked=[0-9]' "$LOG_FILE" | head -1 | cut -d= -f2)"
+  eff="$(grep -oE -m1 'effective_mode=[^ ]+' "$LOG_FILE" | cut -d= -f2)"
+  comp="$(grep -oE -m1 'compiled_mode=[^ ]+' "$LOG_FILE" | cut -d= -f2)"
+  lock="$(grep -oE -m1 'locked=[0-9]' "$LOG_FILE" | cut -d= -f2)"
   echo "effective_mode=${eff:-?}  compiled_mode=${comp:-?}  locked=${lock:-?}  requested(env)=$MODE"
   echo
   echo "-- multi-APK evidence (distinct src= in mutator log) --"
