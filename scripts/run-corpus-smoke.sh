@@ -94,11 +94,21 @@ if [ -n "${APKFUZZ_SAVE_DIR:-}" ]; then
   echo ">> saving mutant patches to: $APKFUZZ_SAVE_DIR"
 fi
 
-# Physical write accounting (root block device).
-root_dev="$(lsblk -no PKNAME "$(findmnt -no SOURCE -T "$OUTPUT_DIR")" 2>/dev/null | head -1)"
-[ -n "$root_dev" ] || root_dev="nvme0n1"
-sectors_written() { awk -v d="$root_dev" '$3==d{print $10; exit}' /proc/diskstats; }
-w0="$(sectors_written || echo 0)"; [ -n "$w0" ] || w0=0
+# Physical write accounting. Best-effort and MUST NEVER abort the run: this is
+# only a reported number. findmnt can append a [/subvol] suffix (btrfs subvolume
+# or bind mount) that lsblk rejects, so strip it, and guard every step so a
+# failure under set -e/pipefail can't kill the script before AFL even starts.
+resolve_root_dev() {
+  local src pk
+  src="$(findmnt -nro SOURCE -T "$OUTPUT_DIR" 2>/dev/null | sed 's/\[.*//')" || true
+  [ -n "$src" ] || { printf ''; return 0; }
+  pk="$(lsblk -no PKNAME "$src" 2>/dev/null | awk 'NF{print; exit}')" || true
+  [ -n "$pk" ] || pk="$(basename "$src" 2>/dev/null)" || true
+  printf '%s' "$pk"
+}
+root_dev="$(resolve_root_dev)"
+sectors_written() { [ -n "$root_dev" ] && awk -v d="$root_dev" '$3==d{print $10; exit}' /proc/diskstats; }
+w0="$(sectors_written || true)"; [ -n "$w0" ] || w0=0
 
 # Reap transient mutants continuously so tmpfs never fills. Short grace: a mutant
 # is consumed by the harness synchronously, so anything a couple of seconds old
@@ -119,7 +129,7 @@ afl_rc=0
 afl-fuzz -V "$DURATION" -m none "${seed_args[@]}" -i "$INPUT_DIR" -o "$OUTPUT_DIR" -- \
   "$PYTHON" "$HARNESS" @@ || afl_rc=$?
 
-w1="$(sectors_written || echo "$w0")"; [ -n "$w1" ] || w1="$w0"
+w1="$(sectors_written || true)"; [ -n "$w1" ] || w1="$w0"
 phys_mb=$(awk -v a="$w0" -v b="$w1" 'BEGIN{printf "%.1f", (b-a)*512/1e6}')
 
 echo
@@ -135,9 +145,9 @@ grep -E 'execs_done|execs_per_sec|corpus_count|saved_crashes|saved_hangs|cycles_
 echo
 echo "-- effective mode (from the mutator, authoritative) --"
 if [ -f "$LOG_FILE" ]; then
-  eff="$(grep -oE -m1 'effective_mode=[^ ]+' "$LOG_FILE" | cut -d= -f2)"
-  comp="$(grep -oE -m1 'compiled_mode=[^ ]+' "$LOG_FILE" | cut -d= -f2)"
-  lock="$(grep -oE -m1 'locked=[0-9]' "$LOG_FILE" | cut -d= -f2)"
+  eff="$(grep -oE -m1 'effective_mode=[^ ]+' "$LOG_FILE" | cut -d= -f2 || true)"
+  comp="$(grep -oE -m1 'compiled_mode=[^ ]+' "$LOG_FILE" | cut -d= -f2 || true)"
+  lock="$(grep -oE -m1 'locked=[0-9]' "$LOG_FILE" | cut -d= -f2 || true)"
   echo "effective_mode=${eff:-?}  compiled_mode=${comp:-?}  locked=${lock:-?}  requested(env)=$MODE"
   echo
   echo "-- multi-APK evidence (distinct src= in mutator log) --"
@@ -152,7 +162,11 @@ fi
 
 echo
 echo "-- physical disk I/O during the run --"
-echo "bytes written to /dev/$root_dev: ${phys_mb} MB over ${DURATION}s"
+if [ -n "$root_dev" ]; then
+  echo "bytes written to /dev/$root_dev: ${phys_mb} MB over ${DURATION}s"
+else
+  echo "device unknown (could not resolve from mount); skipping byte count"
+fi
 echo "output dir: $OUTPUT_DIR"
 
 if [ "$afl_rc" -ne 0 ]; then
