@@ -23,6 +23,7 @@ import argparse
 import csv
 import hashlib
 import os
+import re
 import struct
 import sys
 import zipfile
@@ -30,13 +31,21 @@ import zipfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
+# A mutant produced by the mutator is named <base>_<seconds-or-seed>_<iter>.apk.
+# Such files must never be seeds: the fuzzer has to start from clean originals.
+MUTANT_NAME_RE = re.compile(r"_\d+_\d+\.apk$")
 
-def md5(path):
-    h = hashlib.md5()
+
+def digest(path, algo):
+    h = hashlib.new(algo)
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def md5(path):
+    return digest(path, "md5")
 
 
 def manifest_data_range(apk_path, info):
@@ -56,9 +65,13 @@ def manifest_data_range(apk_path, info):
 
 def check_apk(path):
     r = {"apk": path, "size": os.path.getsize(path), "md5": md5(path),
+         "sha256": digest(path, "sha256"),
          "zip_opens": False, "manifest_present": False,
          "manifest_locatable": False, "manifest_range": "", "usable": False,
          "note": ""}
+    if MUTANT_NAME_RE.search(os.path.basename(path)):
+        r["note"] = "looks like a saved mutant (name _<n>_<n>.apk); not a valid seed"
+        return r
     try:
         z = zipfile.ZipFile(path, "r")
     except Exception as e:
@@ -89,8 +102,8 @@ def main():
     ap.add_argument("--input-dir", default=os.path.join(ROOT, "Evaluation-SSBSE-2026", "input"))
     ap.add_argument("--write-inputs", action="store_true",
                     help="(re)generate <base>.txt path-files for USABLE apks")
-    ap.add_argument("--strict", action="store_true",
-                    help="also fail (exit 1) when duplicate APKs are present")
+    ap.add_argument("--allow-duplicates", action="store_true",
+                    help="do not fail when byte-identical APKs are present")
     ap.add_argument("--report")
     args = ap.parse_args()
 
@@ -123,7 +136,8 @@ def main():
     print(f"   usable             : {len(usable)}")
     print(f"   distinct contents  : {len(by_md5)}  (by md5)")
     if dups:
-        print(f"   DUPLICATE GROUPS   : {len(dups)}  (warning — wasted fuzzing effort, not fatal)")
+        tag = "allowed" if args.allow_duplicates else "FATAL"
+        print(f"   DUPLICATE GROUPS   : {len(dups)}  ({tag} — same content, wasted effort + skewed per-APK stats)")
         for h, names in dups.items():
             print(f"      {h[:12]} -> {', '.join(names)}")
 
@@ -148,12 +162,13 @@ def main():
             w.writerows(rows)
         print(f">> report: {args.report}")
 
-    # Unusable APKs are fatal; duplicates are only fatal under --strict.
-    ok = (len(usable) == len(rows)) and (not dups or not args.strict)
+    # Unusable APKs are always fatal; duplicates are fatal unless explicitly allowed.
+    dup_fatal = bool(dups) and not args.allow_duplicates
+    ok = (len(usable) == len(rows)) and not dup_fatal
     if len(usable) != len(rows):
-        print("\n(exit 1: one or more APKs are unusable)")
-    elif dups and args.strict:
-        print("\n(exit 1: duplicates present and --strict set)")
+        print("\n(exit 1: one or more APKs are unusable — see notes above)")
+    elif dup_fatal:
+        print("\n(exit 1: duplicate APKs present; remove them or pass --allow-duplicates)")
     return 0 if ok else 1
 
 
