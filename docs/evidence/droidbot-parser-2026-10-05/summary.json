@@ -1,0 +1,14 @@
+{
+  "finished_local": "2026-10-05T23:56:29+0300",
+  "elapsed_seconds": 10800.6,
+  "cases": 17480,
+  "by_app": {
+    "F-Droid": 8740,
+    "flashlight": 8740
+  },
+  "by_status": {
+    "parsed": 13024,
+    "rejected:BadZipFile": 4456
+  },
+  "stopped_early": false
+}
