@@ -1,0 +1,12 @@
+# environment variables:
+AFL_CUSTOM_MUTATOR_LIBRARY=build/mutators/cm-ApkVulFuzz2-random-range.so
+AFL_CUSTOM_MUTATOR_ONLY=1
+AFL_CUSTOM_INFO_PROGRAM=/home/sahar/Projects/ApkVulFuzz/.venv/bin/python3
+AFL_CUSTOM_INFO_PROGRAM_ARGV=/home/sahar/Projects/ApkVulFuzz/afl/apk_pathfile_harness.py @@
+AFL_CUSTOM_INFO_OUT=/tmp/apkvulfuzz-random-smoke-fixed-20261005/default
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+AFL_NO_UI=1
+AFL_SKIP_BIN_CHECK=1
+AFL_SKIP_CPUFREQ=1
+# command line:
+'afl-fuzz' '-V' '60' '-m' 'none' '-s' '10506' '-i' '/home/sahar/Projects/ApkVulFuzz/Evaluation-SSBSE-2026/input' '-o' '/tmp/apkvulfuzz-random-smoke-fixed-20261005' '--' '/home/sahar/Projects/ApkVulFuzz/.venv/bin/python3' '/home/sahar/Projects/ApkVulFuzz/afl/apk_pathfile_harness.py' '@@'

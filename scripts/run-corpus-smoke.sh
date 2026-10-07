@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # run-corpus-smoke.sh
 #
-# Short smoke test over the WHOLE corpus with a selectable custom mutator/strategy.
-# Per-iteration logging is on, so one run proves multi-APK cycling and
-# custom-mutator-only operation, and reports the mutator's *effective* mode
+# Bounded AFL run with a selectable custom mutator/strategy and input directory.
+# Per-iteration logging reports the mutator's *effective* mode
 # (which a locked variant .so decides, not the environment).
 #
 # Transient mutants are written to tmpfs and reaped continuously, so a long run
@@ -14,13 +13,15 @@
 #   scripts/run-corpus-smoke.sh [DURATION_SECONDS] [MUTATOR_SO] [MODE] [OUTPUT_DIR]
 # Env:
 #   APKFUZZ_SAVE_DIR=dir   keep a tiny patch per mutant for post-run analysis
+#   APKFUZZ_INPUT_DIR=dir  use a prepared subset of path-file seeds
 set -euo pipefail
 
 DURATION="${1:-20}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-INPUT_DIR="$PROJECT_ROOT/Evaluation-SSBSE-2026/input"
+DEFAULT_INPUT_DIR="$PROJECT_ROOT/Evaluation-SSBSE-2026/input"
+INPUT_DIR="${APKFUZZ_INPUT_DIR:-$DEFAULT_INPUT_DIR}"
 APK_DIR="$PROJECT_ROOT/Evaluation-SSBSE-2026/apk"
 HARNESS="$PROJECT_ROOT/afl/apk_pathfile_harness.py"
 PYTHON="$PROJECT_ROOT/.venv/bin/python3"
@@ -38,33 +39,36 @@ LOG_FILE="$OUTPUT_DIR/apkfuzz_mutator.log"
 # Transient mutants live on tmpfs (RAM), never the SSD. A reaper prunes them.
 SCRATCH_BASE="/dev/shm"; [ -w "$SCRATCH_BASE" ] || SCRATCH_BASE="$OUTPUT_DIR"
 SCRATCH_DIR="$SCRATCH_BASE/apkfuzz-scratch-$$"
-RUN_MARKER="$(mktemp)"
 REAPER_PID=""
+WATCHDOG_PID=""
+AFL_PID=""
 
 cleanup() {
-  [ -n "$REAPER_PID" ] && kill "$REAPER_PID" 2>/dev/null || true
-  rm -rf "$SCRATCH_DIR" 2>/dev/null || true
-  if [ -d "$APK_DIR" ]; then
-    find "$APK_DIR" -maxdepth 1 -regextype posix-extended -type f \
-      -name '*.apk' -newer "$RUN_MARKER" \
-      -regex '.*/.*_[0-9]+_[0-9]+\.apk' -delete 2>/dev/null || true
+  [ -n "$WATCHDOG_PID" ] && kill "$WATCHDOG_PID" 2>/dev/null || true
+  [ -n "$AFL_PID" ] && kill "$AFL_PID" 2>/dev/null || true
+  if [ -n "$REAPER_PID" ]; then
+    kill "$REAPER_PID" 2>/dev/null || true
+    wait "$REAPER_PID" 2>/dev/null || true
   fi
-  rm -f "$RUN_MARKER"
+  rm -rf "$SCRATCH_DIR" 2>/dev/null || true
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 command -v afl-fuzz >/dev/null 2>&1 || { echo "error: afl-fuzz not in PATH" >&2; exit 1; }
 [ -f "$MUTATOR" ] || { echo "error: mutator not found: $MUTATOR (build it first)" >&2; exit 1; }
 [ -d "$INPUT_DIR" ] || { echo "error: input dir not found: $INPUT_DIR" >&2; exit 1; }
 
 # Validate + (re)generate path-files for the current corpus first.
-if [ -f "$SCRIPT_DIR/validate-corpus.py" ]; then
+if [ "$INPUT_DIR" = "$DEFAULT_INPUT_DIR" ] && [ -f "$SCRIPT_DIR/validate-corpus.py" ]; then
   echo ">> validating corpus and regenerating path-files"
   "$PYTHON" "$SCRIPT_DIR/validate-corpus.py" --write-inputs || {
     echo "error: corpus validation failed; fix the APKs above before smoke testing" >&2; exit 1; }
 fi
 
 seed_count=$(find "$INPUT_DIR" -maxdepth 1 -name '*.txt' | wc -l | tr -d ' ')
+[ "$seed_count" -gt 0 ] || { echo "error: no path-file seeds in $INPUT_DIR" >&2; exit 1; }
 echo ">> seeds (path-files): $seed_count"
 echo ">> mutator: $MUTATOR"
 echo ">> requested mode (env): $MODE   (a locked .so overrides this; see summary)"
@@ -125,9 +129,46 @@ if [ -n "${APKFUZZ_AFL_SEED:-}" ]; then
   seed_args=(-s "$APKFUZZ_AFL_SEED")
   echo ">> afl seed: $APKFUZZ_AFL_SEED"
 fi
-afl_rc=0
+watchdog_error="$OUTPUT_DIR/watchdog-error.txt"
 afl-fuzz -V "$DURATION" -m none "${seed_args[@]}" -i "$INPUT_DIR" -o "$OUTPUT_DIR" -- \
-  "$PYTHON" "$HARNESS" @@ || afl_rc=$?
+  "$PYTHON" "$HARNESS" @@ &
+AFL_PID=$!
+watchdog() {
+  while kill -0 "$AFL_PID" 2>/dev/null; do
+    if ! kill -0 "$REAPER_PID" 2>/dev/null; then
+      echo "scratch reaper stopped unexpectedly" > "$watchdog_error"
+      break
+    fi
+    if [ -f "$LOG_FILE" ] && tail -n 200 "$LOG_FILE" | grep -Eq 'status=(write_failed|load_failed)'; then
+      echo "mutator reported a write/load failure" > "$watchdog_error"
+      break
+    fi
+    free_shm_kb="$(df -Pk /dev/shm 2>/dev/null | awk 'NR==2{print $4}' || true)"
+    if ! [[ "$free_shm_kb" =~ ^[0-9]+$ ]] || [ "$free_shm_kb" -lt 1000000 ]; then
+      echo "less than 1 GB free in /dev/shm" > "$watchdog_error"
+      break
+    fi
+    free_disk_kb="$(df -Pk "$OUTPUT_DIR" 2>/dev/null | awk 'NR==2{print $4}' || true)"
+    if ! [[ "$free_disk_kb" =~ ^[0-9]+$ ]] || [ "$free_disk_kb" -lt 2000000 ]; then
+      echo "less than 2 GB free on the output disk" > "$watchdog_error"
+      break
+    fi
+    sleep 5
+  done
+  if [ -s "$watchdog_error" ]; then kill -TERM "$AFL_PID" 2>/dev/null || true; fi
+}
+watchdog &
+WATCHDOG_PID=$!
+afl_rc=0
+wait "$AFL_PID" || afl_rc=$?
+AFL_PID=""
+kill "$WATCHDOG_PID" 2>/dev/null || true
+wait "$WATCHDOG_PID" 2>/dev/null || true
+WATCHDOG_PID=""
+if [ -s "$watchdog_error" ]; then
+  echo "ERROR: $(cat "$watchdog_error")" >&2
+  afl_rc=1
+fi
 
 w1="$(sectors_written || true)"; [ -n "$w1" ] || w1="$w0"
 phys_mb=$(awk -v a="$w0" -v b="$w1" 'BEGIN{printf "%.1f", (b-a)*512/1e6}')
@@ -150,9 +191,9 @@ if [ -f "$LOG_FILE" ]; then
   lock="$(grep -oE -m1 'locked=[0-9]' "$LOG_FILE" | cut -d= -f2 || true)"
   echo "effective_mode=${eff:-?}  compiled_mode=${comp:-?}  locked=${lock:-?}  requested(env)=$MODE"
   echo
-  echo "-- multi-APK evidence (distinct src= in mutator log) --"
-  grep -oE 'src=[^ ]+' "$LOG_FILE" | sort -u
-  echo "distinct seeds mutated: $(grep -oE 'src=[^ ]+' "$LOG_FILE" | sort -u | wc -l | tr -d ' ')"
+  echo "-- original APKs actually mutated (descendants excluded) --"
+  originals="$(grep -oE 'src=[^ ]+' "$LOG_FILE" | cut -d= -f2- | awk -v d="$APK_DIR/" 'index($0,d)==1' | sort -u || true)"
+  if [ -n "$originals" ]; then printf '%s\n' "$originals"; else echo "(none observed)"; fi
   echo
   echo "-- status breakdown --"
   grep -oE 'status=[a-z_]+' "$LOG_FILE" | sort | uniq -c
@@ -163,11 +204,31 @@ fi
 echo
 echo "-- physical disk I/O during the run --"
 if [ -n "$root_dev" ]; then
-  echo "bytes written to /dev/$root_dev: ${phys_mb} MB over ${DURATION}s"
+  echo "system-wide bytes written to /dev/$root_dev: ${phys_mb} MB over ${DURATION}s"
 else
   echo "device unknown (could not resolve from mount); skipping byte count"
 fi
 echo "output dir: $OUTPUT_DIR"
+
+# AFL stores path-files for findings. Preserve their APK bytes while scratch is
+# still available, or rebuild from patches when the reaper has removed them.
+triage_rc=0
+triage_args=("$OUTPUT_DIR" --collect "$OUTPUT_DIR/findings" --queue-index "$OUTPUT_DIR/queue-index.tsv")
+if [ -n "${APKFUZZ_SAVE_DIR:-}" ]; then triage_args+=(--patch-dir "$APKFUZZ_SAVE_DIR"); fi
+"$PYTHON" "$SCRIPT_DIR/triage-afl-output.py" "${triage_args[@]}" \
+  > "$OUTPUT_DIR/triage.txt" 2>&1 || triage_rc=$?
+if [ "$triage_rc" -eq 4 ] || [ "$triage_rc" -eq 1 ] || [ "$triage_rc" -eq 2 ]; then
+  echo "ERROR: crash/hang collection failed; see $OUTPUT_DIR/triage.txt" >&2
+  exit 1
+fi
+if [ "$triage_rc" -eq 3 ]; then
+  echo "crash/hang input(s) collected: $OUTPUT_DIR/findings"
+fi
+
+if [ -f "$LOG_FILE" ] && grep -Eq 'status=(write_failed|load_failed)' "$LOG_FILE"; then
+  echo "ERROR: mutator reported write/load failures; see $LOG_FILE" >&2
+  exit 1
+fi
 
 if [ "$afl_rc" -ne 0 ]; then
   echo "ERROR: afl-fuzz exited non-zero (exit=$afl_rc). Smoke test FAILED." >&2

@@ -353,7 +353,10 @@ be reproduced exactly.
 Transient mutants are written to tmpfs (`/dev/shm`) and reaped continuously
 (`scripts/reap-scratch.py`), so physical disk I/O stays near zero regardless of
 run length. For post-run analysis set `APKFUZZ_SAVE_DIR=dir`: the mutator saves a
-~200-byte **patch** (origin + byte edits) per mutant instead of a multi-MB APK.
+small **patches** (origin + byte edits, with a parent patch for later generations)
+per mutant instead of a multi-MB APK. Keep the entire patch directory: a
+descendant depends on its ancestors. Legacy v1 descendant patches do not record
+that dependency and `apply-patch.py` rejects them to avoid a false reconstruction.
 Reconstruct the exact mutant when you need it:
 
 ```bash
@@ -363,8 +366,11 @@ python3 scripts/apply-patch.py path/to/mutant.patch -o mutant.apk --sha256
 ### Tests (gate every build)
 
 ```bash
-bash scripts/run-tests.sh     # reproducibility + all 17 variants; a few seconds
+bash scripts/run-tests.sh     # reproducibility + 17 variants + patch lineage
 ```
+
+For the bounded, serial random-mutator experiment, see
+[`docs/RANDOM_CAMPAIGN_READY_2026-10-05_HE.md`](docs/RANDOM_CAMPAIGN_READY_2026-10-05_HE.md).
 
 `test_variant_sanity.sh` asserts each locked `.so` only edits the ZIP structure
 its name promises (computed independently from the ZIP layout, not the mutator's

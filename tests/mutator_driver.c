@@ -92,13 +92,13 @@ int main(int argc, char **argv) {
         memcpy(mpath, out, n); mpath[n] = '\0';
         size_t mut_n = 0;
         uint8_t *mut = slurp(mpath, &mut_n);
-        if (!mut) { printf("R%d UNREADABLE\n", r); free(out); rc = 1; continue; }
+        if (!mut) { printf("R%d UNREADABLE\n", r); rc = 1; continue; }
         printf("R%d", r);
         size_t lim = mut_n < orig_n ? mut_n : orig_n;
         for (size_t i = 0; i < lim; i++)
             if (mut[i] != orig[i]) printf(" %zu:%02x", i, mut[i] ^ orig[i]);
         printf("\n");
-        free(mut); free(out);
+        free(mut);
     }
     f_deinit(d);
     dlclose(h);

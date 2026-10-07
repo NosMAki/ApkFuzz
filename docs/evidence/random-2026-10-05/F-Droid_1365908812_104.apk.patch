@@ -1,0 +1,24 @@
+# apkfuzz-patch v2
+origin /home/sahar/Projects/ApkVulFuzz/Evaluation-SSBSE-2026/apk/F-Droid.apk
+mode random-range
+seed 1365908812
+iter 104
+gen 1
+status ok
+edits 16
+10419629 cf c7
+8612912 a8 88
+6381434 81 a1
+7089987 c6 46
+8917157 d0 f0
+3818148 14 54
+2716850 d4 94
+3271621 30 38
+7520105 1d 5d
+5311886 00 02
+2968479 71 61
+10057943 6e 7e
+601981 1c 3c
+12361436 00 40
+4121112 1e 1c
+9531721 65 64

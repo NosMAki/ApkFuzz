@@ -1,0 +1,8 @@
+started_utc=2026-10-05T10:39:28Z
+git_head=99e4cf7dfd38aea22b3556b25b2604134b106d5f
+mutator_sha256=473051b51f5b2316480bbfa841d1bc7ea78f816939dbad0e190d4f3736600ef8
+seconds_per_apk=15
+base_seed=22000
+flips=1
+gen_cap=1
+apk_count=2

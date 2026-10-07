@@ -8,14 +8,17 @@ workflow) it resolves each crashing/hanging input back to the real mutant APK it
 points at.
 
 Usage:
-  triage-afl-output.py OUTDIR [--collect DIR]
+  triage-afl-output.py OUTDIR [--collect DIR] [--patch-dir DIR]
     OUTDIR is an afl-fuzz -o directory (it will use OUTDIR/default if present).
-    --collect DIR  copy crash/hang inputs (+ any resolved mutant APKs) into DIR.
+    --collect DIR  copy crash/hang inputs and reconstructed APKs into DIR.
+    --patch-dir DIR  reconstruct mutants whose temporary APKs were reaped.
 """
 import argparse
+import csv
 import os
 import re
 import shutil
+import subprocess
 import sys
 
 
@@ -56,6 +59,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("outdir")
     ap.add_argument("--collect")
+    ap.add_argument("--patch-dir")
+    ap.add_argument("--queue-index", help="write a TSV index of queue path-files and saved patches")
     args = ap.parse_args()
 
     base = args.outdir
@@ -94,8 +99,30 @@ def main():
         if "src:" in name:
             finds += 1
     print(f"\n   queue entries      : {len(q)}")
-    print(f"   distinct seeds used: {len(origs)}  -> {', '.join(sorted(origs)) if origs else '(none tagged)'}")
+    print(f"   original seeds loaded: {len(origs)}  -> {', '.join(sorted(origs)) if origs else '(none tagged)'}")
+    print("   (check mutator log src= entries for seeds actually mutated)")
     print(f"   new finds (src:)   : {finds}")
+
+    missing_queue = 0
+    if args.queue_index:
+        rows = []
+        for name in sorted(q):
+            target = resolve_pathfile(os.path.join(qdir, name))
+            patch = (os.path.join(args.patch_dir, os.path.basename(target) + ".patch")
+                     if target and args.patch_dir and "src:" in name else "")
+            patch_exists = bool(patch and os.path.isfile(patch))
+            if "src:" in name and args.patch_dir and not patch_exists:
+                missing_queue += 1
+            rows.append({"queue_entry": name, "apk_path": target or "",
+                         "patch_path": patch, "patch_exists": int(patch_exists)})
+        with open(args.queue_index, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["queue_entry", "apk_path", "patch_path", "patch_exists"],
+                                    delimiter="\t")
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"   queue index        : {args.queue_index}")
+        if missing_queue:
+            print(f"   WARNING: {missing_queue} new queue item(s) lack saved patches")
 
     def show(kind, items):
         if not items:
@@ -149,19 +176,46 @@ def main():
             print(f"   first: t={tcol(f)}s edges_found={ecol(f)}" + (f" map_size={mcol(f)}" if mcol(f) else ""))
             print(f"   last : t={tcol(ln)}s edges_found={ecol(ln)}" + (f" map_size={mcol(ln)}" if mcol(ln) else ""))
 
+    missing = 0
     if args.collect and (crashes or hangs):
-        os.makedirs(args.collect, exist_ok=True)
-        n = 0
-        for p in crashes + hangs:
-            shutil.copy2(p, os.path.join(args.collect, os.path.basename(p)))
-            n += 1
-            apk = resolve_pathfile(p)
-            if apk and os.path.isfile(apk):
-                shutil.copy2(apk, os.path.join(args.collect, os.path.basename(apk)))
-        print(f"\n>> collected {n} crash/hang input(s) (+ resolvable mutants) into {args.collect}")
+        n = reconstructed = 0
+        for kind, items in (("crashes", crashes), ("hangs", hangs)):
+            for p in items:
+                dest = os.path.join(args.collect, kind)
+                input_dir = os.path.join(dest, "inputs")
+                apk_dir = os.path.join(dest, "apks")
+                os.makedirs(input_dir, exist_ok=True)
+                os.makedirs(apk_dir, exist_ok=True)
+                shutil.copy2(p, os.path.join(input_dir, os.path.basename(p)))
+                n += 1
+                apk = resolve_pathfile(p)
+                if not apk:
+                    print(f"warning: cannot resolve APK path from {p}", file=sys.stderr)
+                    missing += 1
+                    continue
+                target = os.path.join(apk_dir, os.path.basename(apk))
+                if os.path.isfile(apk):
+                    shutil.copy2(apk, target)
+                    continue
+                patch = (os.path.join(args.patch_dir, os.path.basename(apk) + ".patch")
+                         if args.patch_dir else None)
+                if patch and os.path.isfile(patch):
+                    cmd = [sys.executable, os.path.join(os.path.dirname(__file__), "apply-patch.py"),
+                           patch, "-o", target]
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        reconstructed += 1
+                        continue
+                    print(f"warning: failed to reconstruct {apk}: {result.stderr.strip()}", file=sys.stderr)
+                else:
+                    print(f"warning: missing APK and patch for {apk}", file=sys.stderr)
+                missing += 1
+        print(f"\n>> collected {n} crash/hang input(s), reconstructed {reconstructed} APK(s) into {args.collect}")
+        if missing:
+            print(f">> WARNING: {missing} crash/hang APK(s) could not be preserved")
 
     # nonzero exit if anything interesting was found
-    return 3 if (crashes or hangs) else 0
+    return 4 if (missing or missing_queue) else (3 if (crashes or hangs) else 0)
 
 
 if __name__ == "__main__":

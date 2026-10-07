@@ -26,6 +26,8 @@ echo; echo ">> reproducibility"
 bash "$TEST_DIR/test_reproducibility.sh" || rc=1
 echo; echo ">> variant sanity"
 bash "$TEST_DIR/test_variant_sanity.sh" || rc=1
+echo; echo ">> patch lineage"
+bash "$TEST_DIR/test_patch_lineage.sh" || rc=1
 
 echo
 [ "$rc" -eq 0 ] && echo "ALL TESTS PASSED" || echo "TESTS FAILED"

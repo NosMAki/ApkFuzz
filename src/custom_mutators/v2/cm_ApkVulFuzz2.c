@@ -48,6 +48,9 @@ typedef struct {
     size_t         buf_size;
     char          *fileout_name;  /* path of the mutant we write */
     char          *origin_path;   /* ultimate original this chain descends from */
+    char          *source_path;   /* actual file mutated, possibly a descendant */
+    char          *return_buf;    /* AFL borrows this until the next fuzz call */
+    size_t         return_cap;
     int            out_gen;       /* generation number of the mutant we produce */
     zip_layout_t   zl;
     apkfuzz_cfg_t  cfg;
@@ -117,6 +120,7 @@ static void free_state_buffers(my_mutator2_t *d) {
     if (d->out_buf)      { free(d->out_buf);      d->out_buf = NULL; }
     if (d->fileout_name) { free(d->fileout_name); d->fileout_name = NULL; }
     if (d->origin_path)  { free(d->origin_path);  d->origin_path = NULL; }
+    if (d->source_path)  { free(d->source_path);  d->source_path = NULL; }
     d->buf_size = 0;
     d->out_gen  = 0;
 }
@@ -179,19 +183,22 @@ static int read_meta(const char *apk_path, char *origin_out, size_t origin_cap, 
     return got_origin;
 }
 
-static void write_meta(const char *apk_path, const char *origin, int gen) {
+static int write_meta(const char *apk_path, const char *origin, int gen) {
     char meta[1100];
-    if (snprintf(meta, sizeof(meta), "%s.meta", apk_path) >= (int)sizeof(meta)) return;
+    if (snprintf(meta, sizeof(meta), "%s.meta", apk_path) >= (int)sizeof(meta)) return -1;
     FILE *f = fopen(meta, "w");
-    if (!f) return;
-    fprintf(f, "origin %s\ngen %d\n", origin, gen);
-    fclose(f);
+    if (!f) return -1;
+    int failed = fprintf(f, "origin %s\ngen %d\n", origin, gen) < 0;
+    if (fclose(f) != 0) failed = 1;
+    if (failed) { remove(meta); return -1; }
+    return 0;
 }
 
 /* Write a compact patch (origin + byte edits) for post-run analysis. Cheap:
  * no hashing of the multi-MB mutant in the hot path (apply-patch.py verifies). */
-static void write_patch(const char *save_dir, const char *mutant_path,
-                        const char *origin, const apkfuzz_cfg_t *cfg,
+static int write_patch(const char *save_dir, const char *mutant_path,
+                        const char *origin, const char *source,
+                        const apkfuzz_cfg_t *cfg,
                         uint64_t seed, uint64_t iter, int gen,
                         const apkfuzz_result_t *res) {
     const char *bn = strrchr(mutant_path, '/');
@@ -199,23 +206,31 @@ static void write_patch(const char *save_dir, const char *mutant_path,
     char path[1200];
     if (snprintf(path, sizeof(path), "%s/%s.patch", save_dir, bn) >= (int)sizeof(path)) {
         fprintf(stderr, "[apkfuzz] save-patch: path too long for %s\n", bn);
-        return;
+        return -1;
     }
     FILE *f = fopen(path, "w");
-    if (!f) return;
-    fprintf(f, "# apkfuzz-patch v1\n");
-    fprintf(f, "origin %s\n", origin ? origin : "?");
-    fprintf(f, "mode %s\n", cfg->mode_name);
-    fprintf(f, "seed %llu\niter %llu\ngen %d\n",
-            (unsigned long long)seed, (unsigned long long)iter, gen);
-    fprintf(f, "status %s\n", apkfuzz_status_name(res->status));
-    fprintf(f, "edits %d\n", res->edits.count);
-    for (int i = 0; i < res->edits.count; i++) {
-        fprintf(f, "%llu %02x %02x\n",
-                (unsigned long long)res->edits.items[i].off,
-                res->edits.items[i].oldv, res->edits.items[i].newv);
+    if (!f) return -1;
+    int failed = 0;
+    failed |= fprintf(f, "# apkfuzz-patch v2\n") < 0;
+    failed |= fprintf(f, "origin %s\n", origin ? origin : "?") < 0;
+    if (source && origin && strcmp(source, origin) != 0) {
+        const char *parent = strrchr(source, '/');
+        parent = parent ? parent + 1 : source;
+        failed |= fprintf(f, "parent %s.patch\n", parent) < 0;
     }
-    fclose(f);
+    failed |= fprintf(f, "mode %s\n", cfg->mode_name) < 0;
+    failed |= fprintf(f, "seed %llu\niter %llu\ngen %d\n",
+                      (unsigned long long)seed, (unsigned long long)iter, gen) < 0;
+    failed |= fprintf(f, "status %s\n", apkfuzz_status_name(res->status)) < 0;
+    failed |= fprintf(f, "edits %d\n", res->edits.count) < 0;
+    for (int i = 0; i < res->edits.count; i++) {
+        failed |= fprintf(f, "%llu %02x %02x\n",
+                          (unsigned long long)res->edits.items[i].off,
+                          res->edits.items[i].oldv, res->edits.items[i].newv) < 0;
+    }
+    if (fclose(f) != 0) failed = 1;
+    if (failed) { remove(path); return -1; }
+    return 0;
 }
 
 /*
@@ -274,6 +289,7 @@ static int resolve_source(my_mutator2_t *d, const char *input_path) {
             d->out_buf = obuf;
             d->buf_size = osz;
             zip2_analyze(d->out_buf, d->buf_size, TARGET_ENTRY, &d->zl);
+            source = origin;
             d->out_gen = 1;
             d->src_status = MST_FALLBACK_TO_ORIGIN;
         }
@@ -281,6 +297,8 @@ static int resolve_source(my_mutator2_t *d, const char *input_path) {
 
     d->origin_path = strdup(origin);
     if (!d->origin_path) { free_state_buffers(d); d->src_status = MST_ERROR; return -1; }
+    d->source_path = strdup(source);
+    if (!d->source_path) { free_state_buffers(d); d->src_status = MST_ERROR; return -1; }
 
     d->fileout_name = build_output_filename(input_path, d->cfg.out_dir, d->seed, d->iter);
     if (!d->fileout_name) { free_state_buffers(d); d->src_status = MST_ERROR; return -1; }
@@ -309,6 +327,7 @@ my_mutator2_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 void afl_custom_deinit(my_mutator2_t *d) {
     if (!d) return;
     free_state_buffers(d);
+    free(d->return_buf);
 #ifdef AFL_CM
     d->afl = 0;
 #endif
@@ -355,6 +374,12 @@ size_t afl_custom_fuzz(my_mutator2_t *d, uint8_t *buf, size_t buf_size,
 
     size_t out_len = strlen(d->fileout_name);
     if (out_len + 1 > max_size) { *out_buf = NULL; return 0; }
+    if (out_len + 1 > d->return_cap) {
+        char *next = realloc(d->return_buf, out_len + 1);
+        if (!next) { *out_buf = NULL; return 0; }
+        d->return_buf = next;
+        d->return_cap = out_len + 1;
+    }
 
     int manifest_found = d->zl.found ? 1 : 0;
     int flips = -1;
@@ -368,28 +393,31 @@ size_t afl_custom_fuzz(my_mutator2_t *d, uint8_t *buf, size_t buf_size,
         d->res.status = MST_NO_MANIFEST;
     }
 
+    if (flips < 0) {
+        apkfuzz_log_line(&d->cfg, path, d->fileout_name, d->seed, d->iter,
+                         d->out_gen, &d->zl, manifest_found, &d->res);
+        *out_buf = NULL; return 0;
+    }
+
+    if (write_file_exact(d->fileout_name, d->out_buf, d->buf_size, "mutant-output", 1) < 0 ||
+        write_meta(d->fileout_name, d->origin_path, d->out_gen) < 0 ||
+        (d->cfg.save_dir &&
+         write_patch(d->cfg.save_dir, d->fileout_name, d->origin_path, d->source_path,
+                     &d->cfg, d->seed, d->iter, d->out_gen, &d->res) < 0)) {
+        d->res.status = MST_WRITE_FAILED;
+        apkfuzz_log_line(&d->cfg, path, d->fileout_name, d->seed, d->iter,
+                         d->out_gen, &d->zl, manifest_found, &d->res);
+        char meta[1100];
+        if (snprintf(meta, sizeof(meta), "%s.meta", d->fileout_name) < (int)sizeof(meta))
+            remove(meta);
+        remove(d->fileout_name);
+        *out_buf = NULL; return 0;
+    }
     apkfuzz_log_line(&d->cfg, path, d->fileout_name, d->seed, d->iter,
                      d->out_gen, &d->zl, manifest_found, &d->res);
 
-    if (flips < 0) { *out_buf = NULL; return 0; }
-
-    if (write_file_exact(d->fileout_name, d->out_buf, d->buf_size, "mutant-output", 1) < 0) {
-        d->res.status = MST_WRITE_FAILED;
-        *out_buf = NULL; return 0;
-    }
-    /* sidecar so a later generation that no longer parses can find its origin */
-    write_meta(d->fileout_name, d->origin_path, d->out_gen);
-
-    /* Optionally keep a tiny patch (origin + edits) for post-run analysis. */
-    if (d->cfg.save_dir) {
-        write_patch(d->cfg.save_dir, d->fileout_name, d->origin_path,
-                    &d->cfg, d->seed, d->iter, d->out_gen, &d->res);
-    }
-
-    char *nb = malloc(out_len + 1);
-    if (!nb) { *out_buf = NULL; return 0; }
-    memcpy(nb, d->fileout_name, out_len + 1);
-    *out_buf = (u8 *)nb;
+    memcpy(d->return_buf, d->fileout_name, out_len + 1);
+    *out_buf = (u8 *)d->return_buf;
     return out_len;
 }
 
@@ -414,7 +442,6 @@ int main(int argc, char **argv) {
     size_t n = afl_custom_fuzz(d, buf, file_size, &out_buf, NULL, 0, 512);
     if (!out_buf || n == 0) { fprintf(stderr, "fuzz failed\n"); afl_custom_deinit(d); return 2; }
     printf("%s\n", (char *)out_buf);
-    free(out_buf);
     afl_custom_deinit(d);
     return 0;
 }

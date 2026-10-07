@@ -90,22 +90,22 @@ explains why and how to force breadth. Seeing more than one here is a bonus, not
 the baseline. Also:
 ```bash
 python3 scripts/triage-afl-output.py afl-corpus-smoke-*/
-# -> "distinct seeds used: N -> F-Droid.apk, flashlight.apk, ..."
+# -> "original seeds loaded: N -> F-Droid.txt, flashlight.txt, ..."
 ```
 
 ### Important nuance to tell the professor
 In this design AFL's seeds are **path-files**, and the custom mutator returns the
-path of the mutant it wrote — so **AFL's coverage feedback sees only the path
-string, not the APK bytes**. Consequences:
-- AFL cycles through the seed queue (one entry per APK) roughly round-robin, so
-  it *does* exercise every APK — the `src=` log proves it.
-- But it does **not** evolve APK content via coverage (each iteration reloads the
-  pristine seed and re-randomizes the manifest region). The "smartness" lives in
-  the custom mutator, not in AFL's queue evolution.
-- Therefore "multi-APK" here means *breadth across seeds*, not *coverage-guided
-  focus*. If you want coverage-guided evolution over APK bytes, that's a separate
-  design change (feed real APK bytes through AFL, or instrument the ZIP/parse
-  target) worth discussing.
+path of the mutant it wrote. The current Python harness opens that APK with
+`zipfile`, so its coverage can reflect ZIP parsing of the mutated bytes. It does
+not observe Android app execution or DroidBot behavior. Consequences:
+- AFL loads each seed during initialization, but may repeatedly mutate only one
+  favored seed. The `src=` log shows which APKs were actually mutated.
+- With `APKFUZZ_GEN_CAP=1`, every random mutation starts from its original APK.
+  AFL can prefer inputs that change Python parser coverage, while the mutator
+  decides which APK bytes to edit.
+- "Multi-APK" means each original APK must actually be mutated. Loading all
+  path-file seeds alone does not establish this; run them separately when it
+  matters. Measuring Android runtime coverage would need a different harness.
 
 ### Empirical result — reproduced with a REAL afl-fuzz build
 
@@ -149,4 +149,3 @@ LOG=$(ls -t afl-corpus-smoke-*/apkfuzz_mutator.log | head -1)
 grep -oE 'src=[^ ]+' "$LOG" | sed -E 's#.*/##' | sort | uniq -c
 ```
 One APK dominating ⇒ you're in the A/B regime ⇒ use option 1 for the real campaign.
-

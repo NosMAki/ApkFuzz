@@ -6,6 +6,7 @@
 # AFL run" without changing modes halfway through a run. The env vars still work
 # for smoke/debug on the unlocked build/cm-ApkVulFuzz2.so, but a locked .so
 # ignores APKFUZZ_MUTATOR_MODE so results are attributable to the file.
+# Set APKFUZZ_ONLY_VARIANT=random-range to build just that variant.
 set -euo pipefail
 
 AFLPP_DIR="${AFLPP_DIR:-$HOME/AFLplusplus}"
@@ -23,10 +24,14 @@ fi
 
 CC="${CC:-clang}"
 mkdir -p "$BUILD_DIR" "$OBJ_ROOT"
+built_count=0
 
 # build_variant LABEL MODE [FLIPS] [SEG_OFFSET] [SEG_SIZE] [FIELD_PATTERN] [FIELD_TARGET]
 build_variant() {
   local label="$1"
+  if [ -n "${APKFUZZ_ONLY_VARIANT:-}" ] && [ "$label" != "$APKFUZZ_ONLY_VARIANT" ]; then
+    return 0
+  fi
   local mode="$2"
   local flips="${3:--1}"
   local seg_offset="${4:--1}"
@@ -68,6 +73,7 @@ build_variant() {
   }
   printf '>> built %-46s mode=%-22s flips=%s pat=%s tgt=%s\n' \
     "$(basename "$so")" "$mode" "$flips" "${field_pattern:-rand}" "${field_target:-rand}"
+  built_count=$((built_count + 1))
 }
 
 # ---- region / intensity variants (bit-flip family) ----
@@ -96,5 +102,5 @@ build_variant size-local-only-plusone  size-fields            -1 -1 -1 plus-one 
 build_variant size-cd-only-plusone     size-fields            -1 -1 -1 plus-one  cd-only
 
 echo
-echo "Built variants under: $BUILD_DIR"
-ls -1 "$BUILD_DIR"
+[ "$built_count" -gt 0 ] || { echo "error: no matching variant: ${APKFUZZ_ONLY_VARIANT:-?}" >&2; exit 1; }
+echo "Built $built_count variant(s) under: $BUILD_DIR"
