@@ -1,0 +1,11 @@
+--- signed-baseline
++++ signed-mutant
+@@ -28,7 +28,7 @@
+             A: android:name(0x01010003)="android.intent.action.MAIN" (Raw: "android.intent.action.MAIN")
+           E: category (line=27)
+             A: android:name(0x01010003)="android.intent.category.LAUNCHER" (Raw: "android.intent.category.LAUNCHER")
+-      E: provider (line=31)
++      E: promider (line=31)
+         A: android:name(0x01010003)="androidx.lifecycle.ProcessLifecycleOwnerInitializer" (Raw: "androidx.lifecycle.ProcessLifecycleOwnerInitializer")
+         A: android:exported(0x01010010)=(type 0x12)0x0
+         A: android:multiprocess(0x01010013)=(type 0x12)0xffffffff

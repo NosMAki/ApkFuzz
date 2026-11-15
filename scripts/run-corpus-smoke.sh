@@ -14,6 +14,8 @@
 # Env:
 #   APKFUZZ_SAVE_DIR=dir   keep a tiny patch per mutant for post-run analysis
 #   APKFUZZ_INPUT_DIR=dir  use a prepared subset of path-file seeds
+#   APKFUZZ_CAPTURE_LIMIT=N  preserve up to N live mutant queue APKs after the run
+#   APKFUZZ_CAPTURE_SAMPLE_SEED=S  deterministically sample when the queue exceeds N
 set -euo pipefail
 
 DURATION="${1:-20}"
@@ -58,6 +60,9 @@ trap 'exit 143' TERM
 
 command -v afl-fuzz >/dev/null 2>&1 || { echo "error: afl-fuzz not in PATH" >&2; exit 1; }
 [ -f "$MUTATOR" ] || { echo "error: mutator not found: $MUTATOR (build it first)" >&2; exit 1; }
+MUTATOR="$(realpath "$MUTATOR")"
+"$PYTHON" -B -c 'from afl import init' >/dev/null 2>&1 || {
+  echo "error: python-afl unavailable to harness interpreter: $PYTHON" >&2; exit 1; }
 [ -d "$INPUT_DIR" ] || { echo "error: input dir not found: $INPUT_DIR" >&2; exit 1; }
 
 # Validate + (re)generate path-files for the current corpus first.
@@ -78,6 +83,9 @@ mkdir -p "$OUTPUT_DIR" "$SCRATCH_DIR"
 
 export AFL_NO_UI=1
 export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+# python-afl converts an unhandled Python exception into a target signal.
+# AFL saved crashes in this arm therefore describe the Python harness only.
+export PYTHON_AFL_SIGNAL=SIGUSR1
 export AFL_SKIP_CPUFREQ=1
 export AFL_SKIP_BIN_CHECK=1
 export AFL_CUSTOM_MUTATOR_ONLY=1
@@ -153,6 +161,11 @@ watchdog() {
       echo "less than 2 GB free on the output disk" > "$watchdog_error"
       break
     fi
+    free_inodes="$(df -Pi "$OUTPUT_DIR" 2>/dev/null | awk 'NR==2{print $4}' || true)"
+    if ! [[ "$free_inodes" =~ ^[0-9]+$ ]] || [ "$free_inodes" -lt 1000000 ]; then
+      echo "less than 1 million free inodes on the output filesystem" > "$watchdog_error"
+      break
+    fi
     sleep 5
   done
   if [ -s "$watchdog_error" ]; then kill -TERM "$AFL_PID" 2>/dev/null || true; fi
@@ -217,6 +230,28 @@ triage_args=("$OUTPUT_DIR" --collect "$OUTPUT_DIR/findings" --queue-index "$OUTP
 if [ -n "${APKFUZZ_SAVE_DIR:-}" ]; then triage_args+=(--patch-dir "$APKFUZZ_SAVE_DIR"); fi
 "$PYTHON" "$SCRIPT_DIR/triage-afl-output.py" "${triage_args[@]}" \
   > "$OUTPUT_DIR/triage.txt" 2>&1 || triage_rc=$?
+# Capture while queue-referenced APKs still exist in scratch. This is optional,
+# bounded, and runs only after AFL stops; it does not enter the fuzzing loop.
+if [ -n "${APKFUZZ_CAPTURE_LIMIT:-}" ]; then
+  capture_args=()
+  if [ -n "${APKFUZZ_CAPTURE_SAMPLE_SEED:-}" ]; then
+    capture_args+=(--sample-seed "$APKFUZZ_CAPTURE_SAMPLE_SEED")
+  fi
+  "$PYTHON" "$SCRIPT_DIR/capture-runtime-candidates.py" \
+    --queue-index "$OUTPUT_DIR/queue-index.tsv" \
+    --output-dir "$OUTPUT_DIR/candidates" \
+    --mutator "$MUTATOR" --fuzzer-stats "$STATS" \
+    --limit "$APKFUZZ_CAPTURE_LIMIT" "${capture_args[@]}" || {
+      echo "ERROR: candidate capture failed; see $OUTPUT_DIR/candidates" >&2
+      exit 1
+    }
+  "$PYTHON" -B "$SCRIPT_DIR/llmdroid-analysis-queue.py" enqueue \
+    --capture-manifest "$OUTPUT_DIR/candidates/manifest.json" \
+    --output "$OUTPUT_DIR/candidates/analysis-queue.json" || {
+      echo "ERROR: independent analysis queue creation failed" >&2
+      exit 1
+    }
+fi
 if [ "$triage_rc" -eq 4 ] || [ "$triage_rc" -eq 1 ] || [ "$triage_rc" -eq 2 ]; then
   echo "ERROR: crash/hang collection failed; see $OUTPUT_DIR/triage.txt" >&2
   exit 1

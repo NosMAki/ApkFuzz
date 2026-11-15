@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "prepared_utc": "2026-10-21T15:07:13.460821+00:00",
+  "status": "ready_for_install_attempt",
+  "queue_entry": "id:000006,src:000000",
+  "capture_manifest": "/tmp/apkfuzz-runtime-feasibility-20261021/capture/manifest.json",
+  "exact_preflight_report": "/tmp/apkfuzz-runtime-feasibility-20261021/exact-preflight.json",
+  "origin_path": "/home/sahar/Projects/droidbot/droidbot/resources/bench_apps/app-lister.apk",
+  "origin_sha256": "6f6155c520750d7a12debfdf38483c25333b7053fd397830cdcb02df48a18b4f",
+  "exact_mutant_path": "/tmp/apkfuzz-runtime-feasibility-20261021/capture/apks/48bf546df91dd3b9f75d31181c213a8686da4c96769904d43064a0f8b2581420.apk",
+  "exact_mutant_sha256": "48bf546df91dd3b9f75d31181c213a8686da4c96769904d43064a0f8b2581420",
+  "patch_path": "/tmp/apkfuzz-runtime-feasibility-20261021/capture/evidence/0001/app-lister_20261021_6.apk.patch",
+  "patch_sha256": "672b07ad309f834b2f6c449ccb03789550969b74553e0d33672a49c96a4d2500",
+  "patch_mode": "manifest-bitflip",
+  "patch_seed": "20261021",
+  "patch_iteration": "6",
+  "patch_edit": {
+    "offset": 2304470,
+    "old": "3d",
+    "new": "1d"
+  },
+  "crc_repair_path": "/tmp/apkfuzz-runtime-feasibility-20261021/prepared-pair-verified/crc-repaired.apk",
+  "crc_repair_sha256": "a59e1a0013d8456ac23a4d25985c9f5fa9e172ae8c755d2ce97db4a5882d5419",
+  "crc32_before": "f4a767d5",
+  "crc32_after": "36165b60",
+  "crc_changed_offsets": [
+    2303788,
+    2303789,
+    2303790,
+    2303791,
+    3152980,
+    3152981,
+    3152982,
+    3152983
+  ],
+  "prepared_apk_path": "/tmp/apkfuzz-runtime-feasibility-20261021/prepared-pair-verified/prepared-signed.apk",
+  "prepared_apk_sha256": "f56c17cadfdfe1d6da9f2d41423a29e65dc14576e794a224e5745d1de645290c",
+  "prepared_baseline_path": "/tmp/apkfuzz-runtime-feasibility-20261021/prepared-pair-verified/prepared-baseline.apk",
+  "prepared_baseline_sha256": "88cd8dbb7fd80f7aa083af35d1f85f39aaed297f2ee8155d879b6ca8640153ec",
+  "signing_certificate_sha256": "6f726faf4d01613e2bfa2d48e26f32bbc6445e5b5770463f304924fa63cad702",
+  "original_manifest_sha256": "06bd341cd7b8ef8e6d50bd3ab7af1c152f30910e7b7089bc1a128d26a891c6e3",
+  "baseline_manifest_sha256": "06bd341cd7b8ef8e6d50bd3ab7af1c152f30910e7b7089bc1a128d26a891c6e3",
+  "mutated_manifest_sha256": "8d9e2e1e7a066364962ff40cac4218a9da4af24c3fe161163317de122bf6ca0d",
+  "prepared_manifest_sha256": "8d9e2e1e7a066364962ff40cac4218a9da4af24c3fe161163317de122bf6ca0d",
+  "manifest_changed_bytes": 1,
+  "other_payload_entries_unchanged": 834,
+  "manifest_content_retained": true,
+  "transformation": [
+    "replace manifest ZIP local and central CRC32 fields",
+    "replace mutant APK signatures with supplied test certificate",
+    "replace baseline APK signatures with the same certificate"
+  ]
+}

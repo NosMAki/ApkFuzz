@@ -29,7 +29,7 @@ CFLAGS=(-fPIC -Wall -O2 -I"$AFLPP_DIR/include" -I. -D AFL_CM)
       "$AFLPP_DIR/src/afl-performance.c" -o afl-performance.o
 
 "$CC" -shared -o cm-ApkVulFuzz2.so \
-      afl-performance.o zip2.o strategies.o cm_ApkVulFuzz2.o
+      afl-performance.o zip2.o strategies.o cm_ApkVulFuzz2.o -lz
 
 cp -f cm-ApkVulFuzz2.so "$BUILD_DIR/"
 echo ">> Built $BUILD_DIR/cm-ApkVulFuzz2.so"
@@ -38,5 +38,5 @@ nm -D "$BUILD_DIR/cm-ApkVulFuzz2.so" | grep afl_custom || {
 
 # Optional: build a standalone tester (no AFL) for offline mode checks.
 "$CC" -Wall -O2 -D APKFUZZ_STANDALONE zip2.c strategies.c cm_ApkVulFuzz2.c \
-      -o "$BUILD_DIR/mut2-standalone"
+      -o "$BUILD_DIR/mut2-standalone" -lz
 echo ">> Built $BUILD_DIR/mut2-standalone  (usage: APKFUZZ_MUTATOR_MODE=... ./mut2-standalone /path/to.apk)"

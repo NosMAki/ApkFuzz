@@ -4,13 +4,7 @@ import sys
 import struct
 import zipfile
 
-try:
-    import afl
-except ModuleNotFoundError:
-    class afl:
-        @staticmethod
-        def init():
-            return None
+from afl import init as afl_init
 
 
 def entry_data_range(apk_path, entry_info):
@@ -79,7 +73,7 @@ def main():
         sys.exit(1)
 
     # Initialize python-afl after imports/setup and before testing the input.
-    afl.init()
+    afl_init()
 
     test_apk(sys.argv[1])
 

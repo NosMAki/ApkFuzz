@@ -262,6 +262,14 @@ The mutators dynamically locate `AndroidManifest.xml` inside each APK instead of
 
 See instructions in `src` folder.
 
+## Optional LLMDroid runtime analysis
+
+See [candidate capture and runtime preflight](docs/LLMDROID_CANDIDATE_PREFLIGHT.md)
+the [pinned LLMDroid setup](docs/LLMDROID_INTEGRATION.md), the
+[Stage 0–10 validation checklist](docs/LLMDROID_STAGE_STATUS.md), and the
+[evaluation protocol](docs/LLMDROID_EVALUATION_PROTOCOL.md).
+These steps are separate from the existing AFL++ fuzzing loop.
+
 ## Test Corrupted APK
 
 First, try this command:

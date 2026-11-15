@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-10-21T14:15:16.666633+00:00",
+  "capture_manifest": "/tmp/apkfuzz-runtime-modern-control-20261021/capture/manifest.json",
+  "preflight_report": "/tmp/apkfuzz-runtime-modern-control-20261021/preflight.json",
+  "queue_entry": "id:000001,src:000000",
+  "mutant_sha256": "5062e239fb82ee412fd1d7d34f4c65e595496e956932dec0d50d165b139aeb33",
+  "stored_apk": "/tmp/apkfuzz-runtime-modern-control-20261021/capture/apks/5062e239fb82ee412fd1d7d34f4c65e595496e956932dec0d50d165b139aeb33.apk",
+  "reasons": [],
+  "metadata": {
+    "status": "ok",
+    "exit_code": 0,
+    "stdout": "package: name='io.github.ylimit.droidbotapp' versionCode='1' versionName='1.0' platformBuildVersionName='13' platformBuildVersionCode='33' compileSdkVersion='33' compileSdkVersionCodename='13'\nsdkVersion:'16'\ntargetSdkVersion:'33'\nuses-permission: name='android.permission.INTERNET'\nuses-permission: name='io.github.ylimit.droidbotapp.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'\napplication-label:'DroidBot'\napplication-label-af:'DroidBot'\napplication-label-am:'DroidBot'\napplication-label-ar:'DroidBot'\napplication-label-as:'DroidBot'\napplication-label-az:'DroidBot'\napplication-label-be:'DroidBot'\nap",
+    "stderr": ""
+  },
+  "package": "io.github.ylimit.droidbotapp",
+  "launch_activity": "io.github.ylimit.droidbotapp.SettingsActivity",
+  "device_probe": {
+    "serial": "emulator-5560",
+    "checks": {
+      "devices": {
+        "status": "ok",
+        "exit_code": 0,
+        "stdout": "List of devices attached\nemulator-5560          device product:sdk_gphone64_x86_64 model:sdk_gphone64_x86_64 device:emu64xa transport_id:1",
+        "stderr": ""
+      },
+      "boot_completed": {
+        "status": "ok",
+        "exit_code": 0,
+        "stdout": "1",
+        "stderr": ""
+      },
+      "package_before": {
+        "status": "ok",
+        "exit_code": 0,
+        "stdout": "package:/data/app/~~BK9B0TKyDSVJgFwmQspREA==/io.github.ylimit.droidbotapp-bVVfdbSxDuJ8rhjerbisJg==/base.apk",
+        "stderr": ""
+      }
+    },
+    "install": null,
+    "launch": null,
+    "process": null,
+    "cleanup": null,
+    "classification": "package_already_installed"
+  },
+  "classification": "package_already_installed"
+}

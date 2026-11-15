@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "started_utc": "2026-10-21T18:54:41.217478+00:00",
+  "status": "defect_candidate",
+  "execution": "sequential on one emulator; clean APK reinstall for each role",
+  "serial": "emulator-5562",
+  "android_sdk": "29",
+  "android_fingerprint": "Android/sdk_phone_x86_64/generic_x86_64:10/QSR1.210820.001/7663313:userdebug/test-keys",
+  "trace_sha256": "a70f1d87a1144649158aa201da348136bec3c0d136b31541b2d51ed9e17491ea",
+  "baseline_apk_sha256": "ae5fbc5ef61cf9e2300a52cbd6502a56d3f14bbbda4854ca8c96a8e7cc860181",
+  "mutant_apk_sha256": "7cec1ca06cf9f8f676595188b4effbe853cd5c84c0ed4806a5f1e355794a6f5f",
+  "runs": {
+    "baseline": {
+      "exit_code": 0,
+      "report": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-positive-control-repeat-2026-10-21/baseline/replay-report.json"
+    },
+    "mutant": {
+      "exit_code": 0,
+      "report": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-positive-control-repeat-2026-10-21/mutant/replay-report.json"
+    }
+  },
+  "updated_utc": "2026-10-21T18:57:21.975725+00:00",
+  "classification": "crash_candidate",
+  "finding": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-positive-control-repeat-2026-10-21/comparison/finding.json"
+}

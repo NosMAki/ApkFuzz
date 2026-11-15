@@ -1,0 +1,7 @@
+2026-10-21 21:39:55,974 | INFO     | droidbot_app:set_up:79 - DroidBot app installed.
+[CONNECTION] DroidBotAppConn is enabled and connected.
+2026-10-21 21:40:17,154 | INFO     | device:install_app:657 - App installed: io.github.ylimit.benchapp
+2026-10-21 21:40:17,163 | INFO     | input_manager:start:119 - start sending events, policy is none
+Please wait while uninstalling the app...
+2026-10-21 21:40:25,842 | INFO     | droidbot:start:181 - DroidBot Stopped
+completed: /home/sahar/Projects/ApkVulFuzz/results/llmdroid-offline-api29-retry-2026-10-21/smoke-report.json

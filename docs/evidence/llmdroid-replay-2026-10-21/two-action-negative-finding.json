@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-10-21T19:05:28.485472+00:00",
+  "status": "no_divergence_observed",
+  "classification": null,
+  "first_divergence": null,
+  "trace_sha256": "a70f1d87a1144649158aa201da348136bec3c0d136b31541b2d51ed9e17491ea",
+  "baseline_apk_sha256": "ae5fbc5ef61cf9e2300a52cbd6502a56d3f14bbbda4854ca8c96a8e7cc860181",
+  "mutant_apk_sha256": "ae5fbc5ef61cf9e2300a52cbd6502a56d3f14bbbda4854ca8c96a8e7cc860181",
+  "baseline_steps": 2,
+  "mutant_steps": 2,
+  "baseline_run_status": "completed",
+  "mutant_run_status": "completed",
+  "reproductions": 0,
+  "confirmed_defect": false,
+  "confirmed_security_vulnerability": false,
+  "baseline_report": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-two-action-negative-control-retry2-2026-10-21/baseline/replay-report.json",
+  "mutant_report": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-two-action-negative-control-retry2-2026-10-21/mutant/replay-report.json"
+}

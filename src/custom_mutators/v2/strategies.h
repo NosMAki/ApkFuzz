@@ -40,6 +40,8 @@ typedef enum {
     MODE_CRC_FIELDS,           /* perturb manifest CRC-32 fields (local + central)         */
     MODE_SIZE_FIELDS,          /* perturb manifest comp/uncomp size fields (local+central) */
     MODE_RANDOM_RANGE,         /* flip anywhere in the file (or [off,off+size) if set)     */
+    MODE_MANIFEST_VALID_ONEBIT, /* one compressed bit with valid deflate + repaired CRC     */
+    MODE_MANIFEST_AXML_ONEBIT,  /* valid-onebit that also keeps binary XML structure sound  */
     MODE_INVALID
 } mut_mode_t;
 
@@ -113,8 +115,9 @@ typedef enum {
     MST_REGION_EMPTY,       /* computed region had no bytes to fuzz             */
     MST_LOAD_FAILED,        /* could not read the input APK                     */
     MST_WRITE_FAILED,       /* could not write the mutant                       */
-    MST_FALLBACK_TO_ORIGIN, /* input was an unparsable mutant; used its origin  */
+    MST_FALLBACK_TO_ORIGIN, /* descendant unavailable or unparsable; used origin */
     MST_GEN_CAP_RESTART,    /* generation cap hit; restarted from the origin    */
+    MST_NO_VALID_MUTATION,  /* bounded attempts found no valid manifest edit   */
     MST_ERROR
 } mut_status_t;
 
@@ -157,6 +160,17 @@ int          apkfuzz_mode_is_locked(void);  /* the -D APKFUZZ_LOCK_COMPILED_MODE
 /* Load config from environment (defaults preserve baseline behavior). */
 void apkfuzz_cfg_load(apkfuzz_cfg_t *cfg);
 
+/* Full compressed-manifest validation used only by the opt-in valid modes.
+ * `strict` additionally requires apkfuzz_axml_valid() on the decoded manifest. */
+int apkfuzz_manifest_valid(const uint8_t *buf, size_t size, const zip_layout_t *zl,
+                           int strict);
+
+/* Structural check of a decoded Android binary XML manifest: chunk framing,
+ * string-pool bounds and termination, string references, element nesting.
+ * Must agree with scripts/android_binary_xml.py (tests/test_axml_structure.py).
+ * Structure only: Android can still refuse a manifest that passes. */
+int apkfuzz_axml_valid(const uint8_t *data, size_t size);
+
 /* ------------------------------------------------------------------ */
 /* Result of one mutation                                              */
 /* ------------------------------------------------------------------ */
@@ -164,6 +178,7 @@ typedef struct {
     int              requested_flips; /* what the mode asked for                */
     int              actual_flips;    /* distinct changes actually applied      */
     mut_status_t     status;
+    const char      *source_reason; /* source selection detail for the log      */
     field_pattern_t  used_pattern;    /* FP_INVALID for non-field modes         */
     field_target_t   used_target;     /* FT_INVALID for non-field modes         */
     apkfuzz_edits_t  edits;

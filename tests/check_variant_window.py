@@ -67,6 +67,11 @@ def expected(label, L):
 
     table = {
         "manifest-bitflip":        ("manifest",        rng(ds, de)),
+        "manifest-onebit":         ("manifest",        rng(ds, de)),
+        "manifest-valid-onebit":   ("manifest+crc", lambda o: ds <= o < de or o in
+                                    field_set(fields["local_crc"]) | field_set(fields["cd_crc"])),
+        "manifest-axml-onebit":    ("manifest+crc", lambda o: ds <= o < de or o in
+                                    field_set(fields["local_crc"]) | field_set(fields["cd_crc"])),
         "manifest-start":          ("manifest[0/3]",   rng(ds, ds + (mlen // 3 or mlen))),
         "manifest-middle":         ("manifest[1/3]",   rng(ds + mlen // 3, ds + 2 * mlen // 3)),
         "manifest-end":            ("manifest[2/3]",   rng(ds + 2 * mlen // 3, de)),
@@ -87,7 +92,8 @@ def expected(label, L):
 
 def main():
     label = sys.argv[1]
-    layout, offs = parse(sys.stdin)
+    lines = sys.stdin.readlines()
+    layout, offs = parse(lines)
     if layout is None:
         print(f"FAIL  {label}: driver found no manifest layout")
         return 1
@@ -96,6 +102,11 @@ def main():
         print(f"FAIL  {label}: no expectation defined for this variant")
         return 1
     name, pred = exp
+    if label == "manifest-onebit" and any(
+            len(re.findall(r"(\d+):([0-9a-f]{2})", line)) > 1
+            for line in lines if line.startswith("R")):
+        print("FAIL  manifest-onebit: one iteration edited multiple bytes")
+        return 1
     if not offs:
         # random-range and a no-op field pattern (KEEP) can legitimately produce
         # nothing; every targeted mode must have touched something.

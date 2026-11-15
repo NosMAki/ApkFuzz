@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-10-21T18:57:21.970162+00:00",
+  "status": "defect_candidate",
+  "classification": "crash_candidate",
+  "first_divergence": {
+    "index": 1,
+    "classification": "crash_candidate",
+    "baseline": {
+      "index": 1,
+      "event_type": "touch",
+      "status": "ok",
+      "source_event_sha256": "ccc403a0924429aa11e925e15f3e8cf4b242cea977c4b5665cd528ad29f558db",
+      "before": {
+        "activity": "org.apkvulfuzz.control/.MainActivity",
+        "ui_state": "c21cb5ba84c1fdaf402321bcf48c92f1",
+        "ui_structure": "5a6245a3832248ebde57621e19b85cd6",
+        "screenshot": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-positive-control-repeat-2026-10-21/baseline/step-001-before.png",
+        "view_count": 12
+      },
+      "matching": {
+        "view": "view_str"
+      },
+      "activity": "org.apkvulfuzz.control/.MainActivity",
+      "ui_state": "4ec2af59511f60bcad29da03891ee498",
+      "ui_structure": "5a6245a3832248ebde57621e19b85cd6",
+      "screenshot": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-positive-control-repeat-2026-10-21/baseline/step-001-after.png",
+      "view_count": 12,
+      "logcat": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-positive-control-repeat-2026-10-21/baseline/step-001-logcat.txt"
+    },
+    "mutant": {
+      "index": 1,
+      "event_type": "touch",
+      "status": "crash",
+      "source_event_sha256": "ccc403a0924429aa11e925e15f3e8cf4b242cea977c4b5665cd528ad29f558db",
+      "before": {
+        "activity": "org.apkvulfuzz.control/.MainActivity",
+        "ui_state": "c21cb5ba84c1fdaf402321bcf48c92f1",
+        "ui_structure": "5a6245a3832248ebde57621e19b85cd6",
+        "screenshot": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-positive-control-repeat-2026-10-21/mutant/step-001-before.png",
+        "view_count": 12
+      },
+      "matching": {
+        "view": "view_str"
+      },
+      "activity": "com.android.launcher3/.Launcher",
+      "ui_state": "0e54e3cc7bffeadb1b3d18f2b275a485",
+      "ui_structure": "e4d97acb2ee0edb2fd0ebc0c4684587b",
+      "screenshot": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-positive-control-repeat-2026-10-21/mutant/step-001-after.png",
+      "view_count": 30,
+      "logcat": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-positive-control-repeat-2026-10-21/mutant/step-001-logcat.txt"
+    }
+  },
+  "trace_sha256": "a70f1d87a1144649158aa201da348136bec3c0d136b31541b2d51ed9e17491ea",
+  "baseline_apk_sha256": "ae5fbc5ef61cf9e2300a52cbd6502a56d3f14bbbda4854ca8c96a8e7cc860181",
+  "mutant_apk_sha256": "7cec1ca06cf9f8f676595188b4effbe853cd5c84c0ed4806a5f1e355794a6f5f",
+  "baseline_steps": 2,
+  "mutant_steps": 2,
+  "baseline_run_status": "completed",
+  "mutant_run_status": "inconclusive",
+  "reproductions": 0,
+  "confirmed_defect": false,
+  "confirmed_security_vulnerability": false,
+  "baseline_report": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-positive-control-repeat-2026-10-21/baseline/replay-report.json",
+  "mutant_report": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-positive-control-repeat-2026-10-21/mutant/replay-report.json"
+}

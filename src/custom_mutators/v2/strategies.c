@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <limits.h>
+#include <zlib.h>
 
 /* ---- compile-time strategy locking (for locked campaign variants) ---- */
 #ifndef APKFUZZ_COMPILED_MODE
@@ -37,7 +39,7 @@ static const char *k_mode_names[] = {
     "manifest-bitflip", "manifest-segment", "manifest-start",
     "manifest-middle",  "manifest-end",     "zip-local-header",
     "zip-central-directory", "crc-fields",  "size-fields",
-    "random-range"
+    "random-range", "manifest-valid-onebit", "manifest-axml-onebit"
 };
 
 const char *apkfuzz_mode_name(mut_mode_t m) {
@@ -89,7 +91,7 @@ field_target_t apkfuzz_field_target_from_string(const char *s) {
 
 static const char *k_status_names[] = {
     "ok", "no_manifest", "region_empty", "load_failed",
-    "write_failed", "fallback_to_origin", "gen_cap_restart", "error"
+    "write_failed", "fallback_to_origin", "gen_cap_restart", "no_valid_mutation", "error"
 };
 const char *apkfuzz_status_name(mut_status_t s) {
     if (s < 0 || s > MST_ERROR) return "error";
@@ -367,6 +369,225 @@ static uint32_t rd32le(const uint8_t *p) {
            ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 }
 
+static uint16_t rd16le(const uint8_t *p) {
+    return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
+}
+
+/* ------------------------------------------------------------------ */
+/* Android binary XML structure (mirror of scripts/android_binary_xml.py) */
+/* ------------------------------------------------------------------ */
+#define AXML_NO_STRING 0xFFFFFFFFu
+
+static int axml_ref(const uint8_t *d, size_t off, uint32_t strings) {
+    uint32_t v = rd32le(d + off);
+    return v == AXML_NO_STRING || v < strings;
+}
+
+/* The pool occupies [start, start + size); the caller checked that range. */
+static int axml_string_pool(const uint8_t *d, size_t start, uint32_t size,
+                            uint32_t *count_out) {
+    if (rd16le(d + start + 2) != 28 || size < 28) return 0;
+    uint32_t count = rd32le(d + start + 8), styles = rd32le(d + start + 12);
+    uint32_t flags = rd32le(d + start + 16);
+    uint32_t strings_start = rd32le(d + start + 20);
+    uint32_t styles_start = rd32le(d + start + 24);
+    if (count > size / 4 || styles > size / 4) return 0;
+    uint64_t table_end = 28 + 4 * ((uint64_t)count + styles);
+    if (table_end > size || strings_start < table_end || strings_start > size) return 0;
+    uint64_t data_len = size - strings_start;
+    if (styles) {
+        if (styles_start < strings_start || styles_start > size) return 0;
+        data_len = styles_start - strings_start;
+    }
+    const uint8_t *base = d + start + strings_start;
+    int utf8 = (flags & (1u << 8)) != 0;
+    for (uint32_t i = 0; i < count; i++) {
+        uint64_t off = rd32le(d + start + 28 + 4 * (size_t)i);
+        uint64_t length = 0;
+        if (utf8) {
+            for (int k = 0; k < 2; k++) {   /* UTF-16 length, then byte length */
+                if (off >= data_len) return 0;
+                length = base[off++];
+                if (length & 0x80) {
+                    if (off >= data_len) return 0;
+                    length = ((length & 0x7F) << 8) | base[off++];
+                }
+            }
+            if (off + length >= data_len || base[off + length] != 0) return 0;
+        } else {
+            if (off + 2 > data_len) return 0;
+            length = rd16le(base + off);
+            off += 2;
+            if (length & 0x8000) {
+                if (off + 2 > data_len) return 0;
+                length = ((length & 0x7FFF) << 16) | rd16le(base + off);
+                off += 2;
+            }
+            uint64_t end = off + 2 * length;
+            if (end + 2 > data_len || rd16le(base + end) != 0) return 0;
+        }
+    }
+    *count_out = count;
+    return 1;
+}
+
+int apkfuzz_axml_valid(const uint8_t *d, size_t size) {
+    if (!d || size < 8 || size > 16u * 1024u * 1024u) return 0;
+    if (rd16le(d) != 0x0003 || rd16le(d + 2) != 8 || rd32le(d + 4) != size) return 0;
+    size_t cursor = 8;
+    uint32_t strings = 0;
+    int have_pool = 0;
+    long depth = 0, namespaces = 0, elements = 0;
+    while (cursor < size) {
+        if (size - cursor < 8) return 0;
+        uint16_t kind = rd16le(d + cursor), header = rd16le(d + cursor + 2);
+        uint32_t chunk = rd32le(d + cursor + 4);
+        if (header < 8 || chunk < header || chunk > size - cursor ||
+            ((header | chunk) & 3)) return 0;
+        if (!have_pool) {
+            if (kind != 0x0001 || !axml_string_pool(d, cursor, chunk, &strings)) return 0;
+            have_pool = 1;
+        } else if (kind == 0x0180) {                 /* resource map */
+            if (header != 8) return 0;
+        } else if (kind >= 0x0100 && kind <= 0x0104) { /* XML tree nodes */
+            size_t ext = cursor + 16;
+            uint32_t need = kind == 0x0102 ? 20 : kind == 0x0104 ? 12 : 8;
+            if (header != 16 || chunk < 16 + need) return 0;
+            if (!axml_ref(d, cursor + 12, strings)) return 0;
+            if (kind == 0x0100 || kind == 0x0101) {   /* namespace start / end */
+                if (!axml_ref(d, ext, strings) || rd32le(d + ext + 4) >= strings) return 0;
+                namespaces += kind == 0x0100 ? 1 : -1;
+                if (namespaces < 0) return 0;
+            } else if (kind == 0x0104) {              /* character data */
+                if (rd32le(d + ext) >= strings) return 0;
+            } else {
+                if (!axml_ref(d, ext, strings) || rd32le(d + ext + 4) >= strings) return 0;
+                if (kind == 0x0103) {                 /* element end */
+                    if (--depth < 0) return 0;
+                } else {                              /* element start */
+                    uint64_t attr_start = rd16le(d + ext + 8);
+                    uint64_t attr_size = rd16le(d + ext + 10);
+                    uint64_t attr_count = rd16le(d + ext + 12);
+                    if (attr_start < 20 || attr_size < 20 ||
+                        attr_start + attr_size * attr_count > chunk - 16) return 0;
+                    for (uint64_t i = 0; i < attr_count; i++) {
+                        size_t attr = ext + attr_start + i * attr_size;
+                        if (!axml_ref(d, attr, strings) ||
+                            rd32le(d + attr + 4) >= strings ||
+                            !axml_ref(d, attr + 8, strings) ||
+                            rd16le(d + attr + 12) != 8 ||
+                            (d[attr + 15] == 0x03 && rd32le(d + attr + 16) >= strings))
+                            return 0;
+                    }
+                    depth++;
+                    elements++;
+                }
+            }
+        } else {
+            return 0;
+        }
+        cursor += chunk;
+    }
+    return have_pool && elements && !depth && !namespaces;
+}
+
+/* Decode the complete raw-deflate manifest and enforce both ZIP header views.
+ * A bounded output buffer rejects size-changing or bomb-like descendants.
+ * `strict` also requires a structurally sound binary XML document. */
+static int manifest_crc(const uint8_t *buf, size_t size, const zip_layout_t *zl,
+                        uint32_t *decoded_crc, int strict) {
+    const uint32_t max_manifest_size = 16u * 1024u * 1024u;
+    if (!buf || !zl || !zl->found || !decoded_crc ||
+        zl->local_header_off > size || size - zl->local_header_off < 30 ||
+        zl->cd_entry_off > size || size - zl->cd_entry_off < 46 ||
+        zl->data_end > size || zl->data_start >= zl->data_end ||
+        zl->data_end - zl->data_start > UINT_MAX ||
+        zl->local_crc_off > size || size - zl->local_crc_off < 12 ||
+        zl->cd_crc_off > size || size - zl->cd_crc_off < 12) return 0;
+
+    uint32_t csize = (uint32_t)(zl->data_end - zl->data_start);
+    uint32_t usize = rd32le(buf + zl->local_usize_off);
+    if (!usize || usize > max_manifest_size ||
+        csize != rd32le(buf + zl->local_csize_off) ||
+        csize != rd32le(buf + zl->cd_csize_off) ||
+        usize != rd32le(buf + zl->cd_usize_off) ||
+        rd16le(buf + zl->local_header_off + 8) != 8 ||
+        rd16le(buf + zl->cd_entry_off + 10) != 8 ||
+        (rd16le(buf + zl->local_header_off + 6) & 0x0009u) ||
+        (rd16le(buf + zl->cd_entry_off + 8) & 0x0009u)) return 0;
+
+    uint8_t *decoded = malloc((size_t)usize + 1);
+    if (!decoded) return 0;
+    z_stream stream;
+    memset(&stream, 0, sizeof(stream));
+    stream.next_in = (Bytef *)(buf + zl->data_start);
+    stream.avail_in = (uInt)csize;
+    stream.next_out = decoded;
+    stream.avail_out = (uInt)usize + 1;
+    int ok = 0;
+    if (inflateInit2(&stream, -MAX_WBITS) == Z_OK) {
+        int result = inflate(&stream, Z_FINISH);
+        ok = result == Z_STREAM_END && stream.total_in == csize &&
+             stream.total_out == usize;
+        inflateEnd(&stream);
+    }
+    if (ok && strict) ok = apkfuzz_axml_valid(decoded, usize);
+    if (ok) *decoded_crc = (uint32_t)crc32(0L, decoded, (uInt)usize);
+    free(decoded);
+    return ok;
+}
+
+int apkfuzz_manifest_valid(const uint8_t *buf, size_t size, const zip_layout_t *zl,
+                           int strict) {
+    uint32_t actual_crc = 0;
+    return manifest_crc(buf, size, zl, &actual_crc, strict) &&
+           actual_crc == rd32le(buf + zl->local_crc_off) &&
+           actual_crc == rd32le(buf + zl->cd_crc_off);
+}
+
+static int mutate_valid_manifest_bit(uint8_t *buf, size_t size,
+                                     const zip_layout_t *zl, apkfuzz_rng_t *rng,
+                                     apkfuzz_result_t *res, int strict) {
+    uint32_t old_crc = 0;
+    res->requested_flips = 1;
+    regions_add(&res->regions, "manifest", zl->data_start, zl->data_end);
+    regions_add(&res->regions, "local_crc", zl->local_crc_off, zl->local_crc_off + 4);
+    regions_add(&res->regions, "cd_crc", zl->cd_crc_off, zl->cd_crc_off + 4);
+    if (!manifest_crc(buf, size, zl, &old_crc, strict) ||
+        old_crc != rd32le(buf + zl->local_crc_off) ||
+        old_crc != rd32le(buf + zl->cd_crc_off)) {
+        res->status = MST_NO_VALID_MUTATION;
+        return -1;
+    }
+    uint64_t span = zl->data_end - zl->data_start;
+    for (int attempt = 0; attempt < 64; attempt++) {
+        uint64_t off = zl->data_start + apkfuzz_rng_below(rng, span);
+        uint8_t bit = (uint8_t)(1u << apkfuzz_rng_below(rng, 8));
+        uint8_t before = buf[off];
+        buf[off] ^= bit;
+        uint32_t new_crc = 0;
+        if (manifest_crc(buf, size, zl, &new_crc, strict) && new_crc != old_crc) {
+            edits_record(&res->edits, off, before, buf[off]);
+            for (int i = 0; i < 4; i++) {
+                uint8_t new_byte = (uint8_t)(new_crc >> (8 * i));
+                uint64_t offsets[2] = {zl->local_crc_off + i, zl->cd_crc_off + i};
+                for (int j = 0; j < 2; j++) {
+                    uint64_t field_off = offsets[j];
+                    if (buf[field_off] != new_byte) {
+                        edits_record(&res->edits, field_off, buf[field_off], new_byte);
+                        buf[field_off] = new_byte;
+                    }
+                }
+            }
+            res->actual_flips = 1;
+            return 1;
+        }
+        buf[off] = before;
+    }
+    res->status = MST_NO_VALID_MUTATION;
+    return -1;
+}
+
 /* Apply `pat` to the 4-byte LE field at off, recording byte edits. Returns the
  * number of bytes actually changed. */
 static int apply_field_pattern(uint8_t *buf, uint64_t off, uint64_t size,
@@ -471,6 +692,10 @@ int apkfuzz_mutate(uint8_t *buf, size_t size, const zip_layout_t *zl,
         return -1;
     }
 
+    if (cfg->mode == MODE_MANIFEST_VALID_ONEBIT || cfg->mode == MODE_MANIFEST_AXML_ONEBIT)
+        return mutate_valid_manifest_bit(buf, size, zl, rng, res,
+                                         cfg->mode == MODE_MANIFEST_AXML_ONEBIT);
+
     if (cfg->mode == MODE_CRC_FIELDS || cfg->mode == MODE_SIZE_FIELDS) {
         field_pattern_t pat = cfg->field_pattern_fixed
             ? cfg->field_pattern
@@ -554,13 +779,14 @@ void apkfuzz_log_line(const apkfuzz_cfg_t *cfg,
         fprintf(f,
           "{\"ts\":%.6f,\"seed\":%llu,\"iter\":%llu,\"gen\":%d,"
           "\"compiled_mode\":\"%s\",\"effective_mode\":\"%s\",\"requested_mode\":\"%s\","
-          "\"locked\":%d,\"status\":\"%s\",\"manifest_found\":%d,"
+          "\"locked\":%d,\"status\":\"%s\",\"source_reason\":\"%s\",\"manifest_found\":%d,"
           "\"manifest\":[%llu,%llu],\"requested_flips\":%d,\"actual_flips\":%d,"
           "\"edits\":%d,\"field_pattern\":\"%s\",\"field_target\":\"%s\",\"regions\":\"",
           t, (unsigned long long)seed, (unsigned long long)iter, gen,
           cfg->compiled_mode, cfg->mode_name,
           (cfg->requested_mode && *cfg->requested_mode) ? cfg->requested_mode : "-",
-          cfg->locked, apkfuzz_status_name(res->status), manifest_found,
+          cfg->locked, apkfuzz_status_name(res->status),
+          res->source_reason ? res->source_reason : "none", manifest_found,
           (unsigned long long)mstart, (unsigned long long)mend,
           res->requested_flips, res->actual_flips, res->edits.count, pat, tgt);
         write_regions_kv(f, &res->regions);
@@ -569,13 +795,14 @@ void apkfuzz_log_line(const apkfuzz_cfg_t *cfg,
     } else {
         fprintf(f,
           "ts=%.6f seed=%llu iter=%llu gen=%d compiled_mode=%s effective_mode=%s "
-          "requested_mode=%s locked=%d status=%s manifest_found=%d "
+          "requested_mode=%s locked=%d status=%s source_reason=%s manifest_found=%d "
           "manifest=[%llu,%llu) requested_flips=%d actual_flips=%d edits=%d "
           "field_pattern=%s field_target=%s regions=",
           t, (unsigned long long)seed, (unsigned long long)iter, gen,
           cfg->compiled_mode, cfg->mode_name,
           (cfg->requested_mode && *cfg->requested_mode) ? cfg->requested_mode : "-",
-          cfg->locked, apkfuzz_status_name(res->status), manifest_found,
+          cfg->locked, apkfuzz_status_name(res->status),
+          res->source_reason ? res->source_reason : "none", manifest_found,
           (unsigned long long)mstart, (unsigned long long)mend,
           res->requested_flips, res->actual_flips, res->edits.count, pat, tgt);
         write_regions_kv(f, &res->regions);

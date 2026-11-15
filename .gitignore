@@ -1,6 +1,8 @@
 # Python environment
 .venv/
 .venv-droidbot/
+.venv-llmdroid/
+.deps/
 __pycache__/
 *.pyc
 

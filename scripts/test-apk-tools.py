@@ -71,8 +71,6 @@ def run_tool(argv, timeout):
     rc = p.returncode
     if rc is not None and rc < 0:
         sig = -rc
-    elif rc is not None and rc > 128:
-        sig = rc - 128
     return {"rc": rc, "signal": sig, "timed_out": False, "out": p.stdout or b""}
 
 

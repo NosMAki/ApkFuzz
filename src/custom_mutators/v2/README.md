@@ -58,6 +58,8 @@ Default is `manifest-bitflip`, which reproduces the baseline behavior.
 | `crc-fields` | manifest CRC-32 fields (local + central) |
 | `size-fields` | manifest compressed/uncompressed size fields (local + central) |
 | `random-range` | anywhere in the file, or `[OFFSET, OFFSET+SIZE)` if set |
+| `manifest-axml-onebit` | as `manifest-valid-onebit`, and the decoded manifest must also stay a structurally sound Android binary XML document (chunk framing, string-pool bounds and termination, string references); a descendant that fails this restarts from the origin. Structure only: Android may still refuse the result |
+| `manifest-valid-onebit` | one compressed manifest bit whose full deflate stream still decodes to the same length; updates both ZIP CRC fields |
 
 ## Tuning env vars
 

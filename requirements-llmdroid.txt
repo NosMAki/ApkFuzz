@@ -1,0 +1,8 @@
+# Tested on Python 3.12.3 with LLMDroid commit 5b5485cf195583370d49e353601985850210277e.
+# JPype1 and setuptools are imported by upstream but omitted from setup.py.
+androguard==4.1.4
+networkx==3.7
+Pillow==13.0.0
+openai==3.36.0
+JPype1==1.7.1
+setuptools==80.10.2

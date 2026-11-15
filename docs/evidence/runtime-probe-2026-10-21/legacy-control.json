@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-10-21T14:13:05.893818+00:00",
+  "capture_manifest": "/tmp/apkfuzz-runtime-small-control-20261021/capture/manifest.json",
+  "preflight_report": "/tmp/apkfuzz-runtime-small-control-20261021/preflight.json",
+  "queue_entry": "id:000001,src:000000",
+  "mutant_sha256": "ee093aa086a1638edd22823ec3c806828caf40ee41f1f48367c172b516c9e070",
+  "stored_apk": "/tmp/apkfuzz-runtime-small-control-20261021/capture/apks/ee093aa086a1638edd22823ec3c806828caf40ee41f1f48367c172b516c9e070.apk",
+  "reasons": [],
+  "metadata": {
+    "status": "ok",
+    "exit_code": 0,
+    "stdout": "package: name='droidbox.tests' versionCode='1' versionName='1.0'\nuses-permission: name='android.permission.SEND_SMS'\nuses-permission: name='android.permission.INTERNET'\nuses-permission: name='android.permission.READ_SMS'\nuses-permission: name='android.permission.READ_CONTACTS'\nuses-permission: name='android.permission.CALL_PHONE'\nuses-permission: name='android.permission.READ_PHONE_STATE'\nuses-permission: name='android.permission.RECEIVE_SMS'\napplication-label:'DroidBoxTests'\napplication-icon-120:'res/drawable-ldpi/ic_launcher.png'\napplication-icon-160:'res/drawable-mdpi/ic_launcher.png'\nappli",
+    "stderr": ""
+  },
+  "package": "droidbox.tests",
+  "launch_activity": "droidbox.tests.DroidBoxTests",
+  "device_probe": {
+    "serial": "emulator-5560",
+    "checks": {
+      "devices": {
+        "status": "ok",
+        "exit_code": 0,
+        "stdout": "List of devices attached\nemulator-5560          device product:sdk_gphone64_x86_64 model:sdk_gphone64_x86_64 device:emu64xa transport_id:1",
+        "stderr": ""
+      },
+      "boot_completed": {
+        "status": "ok",
+        "exit_code": 0,
+        "stdout": "1",
+        "stderr": ""
+      },
+      "package_before": {
+        "status": "failed",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    "install": {
+      "status": "failed",
+      "exit_code": 1,
+      "stdout": "Performing Streamed Install",
+      "stderr": "adb: failed to install /tmp/apkfuzz-runtime-small-control-20261021/capture/apks/ee093aa086a1638edd22823ec3c806828caf40ee41f1f48367c172b516c9e070.apk: Failure [INSTALL_FAILED_DEPRECATED_SDK_VERSION: App package must target at least SDK version 23, but found 0]"
+    },
+    "launch": null,
+    "process": null,
+    "cleanup": {
+      "package_after": {
+        "status": "failed",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": ""
+      },
+      "force_stop": null,
+      "uninstall": null,
+      "complete": true
+    },
+    "classification": "install_failed"
+  },
+  "classification": "install_failed"
+}

@@ -17,6 +17,10 @@ if ! command -v afl-fuzz >/dev/null 2>&1; then
   echo "error: afl-fuzz not found in PATH" >&2
   exit 1
 fi
+"$PYTHON" -B -c 'from afl import init' >/dev/null 2>&1 || {
+  echo "error: python-afl unavailable to harness interpreter: $PYTHON" >&2
+  exit 1
+}
 
 if [ ! -d "$INPUT_DIR" ]; then
   echo "error: APK input directory not found: $INPUT_DIR" >&2
@@ -29,8 +33,11 @@ export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 export AFL_SKIP_CPUFREQ=1
 export AFL_SKIP_BIN_CHECK=1
 
+if [ -e "$OUTPUT_DIR" ]; then
+  echo "error: output already exists: $OUTPUT_DIR" >&2
+  exit 1
+fi
 cd "$PROJECT_ROOT"
-rm -rf "$OUTPUT_DIR"
 afl-fuzz -V "$DURATION" -m none -i "$INPUT_DIR" -o "$OUTPUT_DIR" -- \
   "$PYTHON" "$HARNESS" @@
 

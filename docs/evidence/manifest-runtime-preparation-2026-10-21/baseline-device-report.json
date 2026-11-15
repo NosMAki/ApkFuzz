@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-10-21T15:10:43.312552+00:00",
+  "source_kind": "prepared_baseline",
+  "capture_manifest": null,
+  "preflight_report": null,
+  "prepared_report": "/tmp/apkfuzz-runtime-feasibility-20261021/prepared-pair-verified/preparation.json",
+  "queue_entry": "id:000006,src:000000",
+  "mutant_sha256": "48bf546df91dd3b9f75d31181c213a8686da4c96769904d43064a0f8b2581420",
+  "tested_apk_sha256": "88cd8dbb7fd80f7aa083af35d1f85f39aaed297f2ee8155d879b6ca8640153ec",
+  "baseline_apk_sha256": "88cd8dbb7fd80f7aa083af35d1f85f39aaed297f2ee8155d879b6ca8640153ec",
+  "stored_apk": "/tmp/apkfuzz-runtime-feasibility-20261021/prepared-pair-verified/prepared-baseline.apk",
+  "reasons": [],
+  "signature": {
+    "status": "ok",
+    "exit_code": 0,
+    "stdout": "WARNING: META-INF/android.support.design_material.version not protected by signature. Unauthorized modifications to this JAR entry will not be detected. Delete or move the entry outside of META-INF/.\nWARNING: META-INF/androidx.appcompat_appcompat.version not protected by signature. Unauthorized modifications to this JAR entry will not be detected. Delete or move the entry outside of META-INF/.\nWARNING: META-INF/androidx.arch.core_core-runtime.version not protected by signature. Unauthorized modifications to this JAR entry will not be detected. Delete or move the entry outside of META-INF/.\nWAR",
+    "stderr": ""
+  },
+  "baseline_signature": {
+    "status": "ok",
+    "exit_code": 0,
+    "stdout": "WARNING: META-INF/android.support.design_material.version not protected by signature. Unauthorized modifications to this JAR entry will not be detected. Delete or move the entry outside of META-INF/.\nWARNING: META-INF/androidx.appcompat_appcompat.version not protected by signature. Unauthorized modifications to this JAR entry will not be detected. Delete or move the entry outside of META-INF/.\nWARNING: META-INF/androidx.arch.core_core-runtime.version not protected by signature. Unauthorized modifications to this JAR entry will not be detected. Delete or move the entry outside of META-INF/.\nWAR",
+    "stderr": ""
+  },
+  "metadata": {
+    "status": "ok",
+    "exit_code": 0,
+    "stdout": "package: name='io.github.ylimit.benchapp' versionCode='1' versionName='1.0' platformBuildVersionName='10' platformBuildVersionCode='29' compileSdkVersion='29' compileSdkVersionCodename='10'\nsdkVersion:'15'\ntargetSdkVersion:'29'\napplication-label:'BenchApp'\napplication-label-af:'BenchApp'\napplication-label-am:'BenchApp'\napplication-label-ar:'BenchApp'\napplication-label-as:'BenchApp'\napplication-label-az:'BenchApp'\napplication-label-be:'BenchApp'\napplication-label-bg:'BenchApp'\napplication-label-bn:'BenchApp'\napplication-label-bs:'BenchApp'\napplication-label-ca:'BenchApp'\napplication-label-cs:'B",
+    "stderr": ""
+  },
+  "package": "io.github.ylimit.benchapp",
+  "launch_activity": "io.github.ylimit.benchapp.MainActivity",
+  "device_probe": {
+    "serial": "emulator-5560",
+    "checks": {
+      "devices": {
+        "status": "ok",
+        "exit_code": 0,
+        "stdout": "List of devices attached\nemulator-5560          device product:sdk_gphone64_x86_64 model:sdk_gphone64_x86_64 device:emu64xa transport_id:2",
+        "stderr": ""
+      },
+      "boot_completed": {
+        "status": "ok",
+        "exit_code": 0,
+        "stdout": "1",
+        "stderr": ""
+      },
+      "package_before": {
+        "status": "failed",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    "install": {
+      "status": "ok",
+      "exit_code": 0,
+      "stdout": "Serving...\nPerforming Incremental Install\nSuccess\nInstall command complete in 28022 ms",
+      "stderr": "All files should be loaded. Notifying the device."
+    },
+    "launch": {
+      "status": "ok",
+      "exit_code": 0,
+      "stdout": "Starting: Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] pkg=io.github.ylimit.benchapp }\nError: Activity not started, unable to resolve Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10000000 pkg=io.github.ylimit.benchapp }",
+      "stderr": ""
+    },
+    "launch_fallback": {
+      "status": "ok",
+      "exit_code": 0,
+      "stdout": "Starting: Intent { cmp=io.github.ylimit.benchapp/.MainActivity }\nStatus: timeout\nLaunchState: UNKNOWN (-1)\nActivity: io.github.ylimit.benchapp/.MainActivity\nWaitTime: 19708\nComplete",
+      "stderr": ""
+    },
+    "process": {
+      "status": "ok",
+      "exit_code": 0,
+      "stdout": "6762",
+      "stderr": ""
+    },
+    "cleanup": {
+      "package_after": {
+        "status": "ok",
+        "exit_code": 0,
+        "stdout": "package:/data/app/~~1jBTFUI-D6-idzl26j9CTw==/io.github.ylimit.benchapp-pTdO5oxt_yMvpk2yckumYw==/base.apk",
+        "stderr": ""
+      },
+      "force_stop": {
+        "status": "ok",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "uninstall": {
+        "status": "ok",
+        "exit_code": 0,
+        "stdout": "Success",
+        "stderr": ""
+      },
+      "complete": true,
+      "uncertain": false,
+      "package_final": {
+        "status": "failed",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    "classification": "launch_timeout_process_running"
+  },
+  "classification": "launch_timeout_process_running"
+}

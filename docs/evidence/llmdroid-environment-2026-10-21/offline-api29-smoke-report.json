@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "started_utc": "2026-10-21T18:39:53.879735+00:00",
+  "status": "completed",
+  "llmdroid_commit": "5b5485cf195583370d49e353601985850210277e",
+  "python": "3.12.3",
+  "mode": "offline",
+  "provider": "Gemini OpenAI-compatible endpoint",
+  "model": "gemini-3.8-flash",
+  "coverage_mode": "time (no code instrumentation)",
+  "apk_path": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-stage1-2026-10-21/prepared-pair-verified/prepared-baseline.apk",
+  "apk_sha256": "88cd8dbb7fd80f7aa083af35d1f85f39aaed297f2ee8155d879b6ca8640153ec",
+  "device_serial": "emulator-5562",
+  "event_limit": 0,
+  "output_dir": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-offline-api29-retry-2026-10-21/droidbot-output",
+  "runtime_seconds": 31.959,
+  "event_files": 0,
+  "finished_utc": "2026-10-21T18:40:25.842345+00:00"
+}

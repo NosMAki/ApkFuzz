@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "captured_utc": "2026-10-21T14:58:10.586888+00:00",
+  "source_queue_index": "/tmp/apkfuzz-runtime-feasibility-20261021/queue-index.tsv",
+  "stored_queue_index_sha256": "06ef00f3d9ca0174bc990cbff1069dc4a300efe339b2bf77748958f5c968bd8d",
+  "corpus_csv": "/tmp/apkfuzz-runtime-feasibility-20261021/corpus.csv",
+  "corpus_csv_sha256": "5ed03d51ddb0eb52d60d6ef1d606f658b0bca6e5efa7f9b39e5236f1136cd9ac",
+  "run": {
+    "mutator_path": null,
+    "mutator_sha256": null,
+    "fuzzer_stats_path": null,
+    "stored_fuzzer_stats": null,
+    "fuzzer_stats_sha256": null,
+    "afl_version": null
+  },
+  "selection": {
+    "limit": 10,
+    "queue_entries": [
+      "id:000006,src:000000"
+    ]
+  },
+  "summary": {
+    "selected": 1,
+    "preserved": 1,
+    "research_ready": 1,
+    "reasons": {}
+  },
+  "candidates": [
+    {
+      "queue_entry": "id:000006,src:000000",
+      "live_apk_path": "/tmp/apkfuzz-runtime-feasibility-20261021/mutants/app-lister_20261021_6.apk",
+      "patch_path": "/tmp/apkfuzz-runtime-feasibility-20261021/patches/app-lister_20261021_6.apk.patch",
+      "stored_apk": "apks/48bf546df91dd3b9f75d31181c213a8686da4c96769904d43064a0f8b2581420.apk",
+      "mutant_sha256": "48bf546df91dd3b9f75d31181c213a8686da4c96769904d43064a0f8b2581420",
+      "mutant_size": 3238532,
+      "patch_chain": [
+        {
+          "path": "evidence/0001/app-lister_20261021_6.apk.patch",
+          "sha256": "672b07ad309f834b2f6c449ccb03789550969b74553e0d33672a49c96a4d2500"
+        }
+      ],
+      "patch_reconstruction_match": "match",
+      "mode": "manifest-bitflip",
+      "seed": "20261021",
+      "iteration": "6",
+      "generation": "1",
+      "origin_path": "/home/sahar/Projects/droidbot/droidbot/resources/bench_apps/app-lister.apk",
+      "origin_sha256": "6f6155c520750d7a12debfdf38483c25333b7053fd397830cdcb02df48a18b4f",
+      "expected_origin_sha256": "6f6155c520750d7a12debfdf38483c25333b7053fd397830cdcb02df48a18b4f",
+      "meta_sidecar": {
+        "path": "evidence/0001/mutant.meta",
+        "sha256": "5f89d8b9951c4db5be35f59bf8ac84c673cee46347174b61aa4b6e57b3b686d6",
+        "values": {
+          "origin": "/home/sahar/Projects/droidbot/droidbot/resources/bench_apps/app-lister.apk",
+          "gen": "1"
+        }
+      },
+      "preserved": true,
+      "research_ready": true,
+      "reasons": []
+    }
+  ]
+}

@@ -247,6 +247,7 @@ static int write_patch(const char *save_dir, const char *mutant_path,
 static int resolve_source(my_mutator2_t *d, const char *input_path) {
     free_state_buffers(d);
     d->src_status = MST_OK;
+    d->res.source_reason = "none";
 
     char origin[1024];
     int  in_gen = 0;
@@ -262,6 +263,7 @@ static int resolve_source(my_mutator2_t *d, const char *input_path) {
         source = origin;                 /* population would degrade; restart */
         d->out_gen = 1;
         d->src_status = MST_GEN_CAP_RESTART;
+        d->res.source_reason = "generation_cap";
     }
 
     size_t sz = 0;
@@ -270,7 +272,11 @@ static int resolve_source(my_mutator2_t *d, const char *input_path) {
         /* chosen source unreadable; try the origin if it is a different file */
         if (strcmp(source, origin) != 0) {
             buf = slurp(origin, &sz);
-            if (buf) { source = origin; d->out_gen = 1; d->src_status = MST_FALLBACK_TO_ORIGIN; }
+            if (buf) {
+                source = origin; d->out_gen = 1;
+                d->src_status = MST_FALLBACK_TO_ORIGIN;
+                d->res.source_reason = "descendant_unreadable";
+            }
         }
         if (!buf) { d->src_status = MST_LOAD_FAILED; return -1; }
     }
@@ -278,10 +284,17 @@ static int resolve_source(my_mutator2_t *d, const char *input_path) {
     d->buf_size = sz;
 
     int ok = zip2_analyze(d->out_buf, d->buf_size, TARGET_ENTRY, &d->zl) && d->zl.found;
+    int valid_mode = d->cfg.mode == MODE_MANIFEST_VALID_ONEBIT ||
+                     d->cfg.mode == MODE_MANIFEST_AXML_ONEBIT;
+    if (ok && valid_mode)
+        ok = apkfuzz_manifest_valid(d->out_buf, d->buf_size, &d->zl,
+                                    d->cfg.mode == MODE_MANIFEST_AXML_ONEBIT);
 
     /* Parse failed on a descendant mutant: fall back to the origin so the chain
      * does not dead-end (measured via status=fallback_to_origin). */
     if (!ok && strcmp(source, origin) != 0) {
+        const char *reason = (valid_mode && d->zl.found)
+            ? "descendant_manifest_invalid" : "descendant_layout_invalid";
         size_t osz = 0;
         uint8_t *obuf = slurp(origin, &osz);
         if (obuf) {
@@ -292,6 +305,7 @@ static int resolve_source(my_mutator2_t *d, const char *input_path) {
             source = origin;
             d->out_gen = 1;
             d->src_status = MST_FALLBACK_TO_ORIGIN;
+            d->res.source_reason = reason;
         }
     }
 
@@ -361,6 +375,7 @@ size_t afl_custom_fuzz(my_mutator2_t *d, uint8_t *buf, size_t buf_size,
     d->res.requested_flips = 0;
     d->res.actual_flips    = 0;
     d->res.status          = MST_OK;
+    d->res.source_reason   = "none";
     d->res.used_pattern    = FP_INVALID;
     d->res.used_target     = FT_INVALID;
 

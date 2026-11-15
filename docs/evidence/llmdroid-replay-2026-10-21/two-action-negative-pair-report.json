@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "started_utc": "2026-10-21T19:03:01.943052+00:00",
+  "status": "no_divergence_observed",
+  "execution": "sequential on one emulator; clean APK reinstall for each role",
+  "serial": "emulator-5562",
+  "android_sdk": "29",
+  "android_fingerprint": "Android/sdk_phone_x86_64/generic_x86_64:10/QSR1.210820.001/7663313:userdebug/test-keys",
+  "trace_sha256": "a70f1d87a1144649158aa201da348136bec3c0d136b31541b2d51ed9e17491ea",
+  "baseline_apk_sha256": "ae5fbc5ef61cf9e2300a52cbd6502a56d3f14bbbda4854ca8c96a8e7cc860181",
+  "mutant_apk_sha256": "ae5fbc5ef61cf9e2300a52cbd6502a56d3f14bbbda4854ca8c96a8e7cc860181",
+  "runs": {
+    "baseline": {
+      "exit_code": 0,
+      "report": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-two-action-negative-control-retry2-2026-10-21/baseline/replay-report.json"
+    },
+    "mutant": {
+      "exit_code": 0,
+      "report": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-two-action-negative-control-retry2-2026-10-21/mutant/replay-report.json"
+    }
+  },
+  "updated_utc": "2026-10-21T19:05:28.490565+00:00",
+  "classification": null,
+  "finding": "/home/sahar/Projects/ApkVulFuzz/results/llmdroid-two-action-negative-control-retry2-2026-10-21/comparison/finding.json"
+}

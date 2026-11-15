@@ -1,0 +1,9 @@
+# apkfuzz-patch v2
+origin /home/sahar/Projects/droidbot/droidbot/resources/bench_apps/app-lister.apk
+mode manifest-bitflip
+seed 20261021
+iter 6
+gen 1
+status ok
+edits 1
+2304470 3d 1d

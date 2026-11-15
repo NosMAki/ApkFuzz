@@ -65,7 +65,7 @@ build_variant() {
 
   "$CC" -shared -o "$so" \
     "$obj_dir/afl-performance.o" "$obj_dir/zip2.o" \
-    "$obj_dir/strategies.o" "$obj_dir/cm_ApkVulFuzz2.o"
+    "$obj_dir/strategies.o" "$obj_dir/cm_ApkVulFuzz2.o" -lz
 
   nm -D "$so" | grep -q 'afl_custom_fuzz' || {
     echo "error: expected afl_custom_* symbols missing in $so" >&2
@@ -78,6 +78,9 @@ build_variant() {
 
 # ---- region / intensity variants (bit-flip family) ----
 build_variant manifest-bitflip         manifest-bitflip       16
+build_variant manifest-onebit          manifest-bitflip        1
+build_variant manifest-valid-onebit    manifest-valid-onebit   1
+build_variant manifest-axml-onebit     manifest-axml-onebit    1
 build_variant manifest-start           manifest-start         16
 build_variant manifest-middle          manifest-middle        16
 build_variant manifest-end             manifest-end           16

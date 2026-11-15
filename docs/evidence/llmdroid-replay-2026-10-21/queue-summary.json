@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "queue_entry": "id:000006,src:000000",
+  "exact_mutant_sha256": "48bf546df91dd3b9f75d31181c213a8686da4c96769904d43064a0f8b2581420",
+  "prepared_baseline_sha256": "88cd8dbb7fd80f7aa083af35d1f85f39aaed297f2ee8155d879b6ca8640153ec",
+  "prepared_mutant_sha256": "f56c17cadfdfe1d6da9f2d41423a29e65dc14576e794a224e5745d1de645290c",
+  "trace_sha256": "3bb27f43042335731eb34be277b9a4a5e4684dcd6c28071544fa8e76f1664052",
+  "plan_summary": {
+    "ready": 1,
+    "blocked": 0
+  },
+  "run_status": "unconfirmed",
+  "paired_outcome": "no_divergence_observed",
+  "classification": null,
+  "repeat_count": 1,
+  "confirmed_security_vulnerability": false
+}

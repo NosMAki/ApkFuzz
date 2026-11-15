@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-10-21T14:58:14.817488+00:00",
+  "corpus_csv": "/tmp/apkfuzz-runtime-feasibility-20261021/corpus.csv",
+  "tools": {
+    "apksigner": "/usr/bin/apksigner",
+    "aapt": "/home/sahar/android-sdk/build-tools/34.0.0/aapt"
+  },
+  "summary": {
+    "candidates": 1,
+    "preflight": {
+      "blocked": 1
+    },
+    "reasons": {
+      "zip_invalid": 1,
+      "manifest_unverified": 1,
+      "signature_invalid_or_unverified": 1
+    }
+  },
+  "candidates": [
+    {
+      "patch": "/tmp/apkfuzz-runtime-feasibility-20261021/capture/evidence/0001/app-lister_20261021_6.apk.patch",
+      "queue_refs": [],
+      "capture_refs": [
+        {
+          "manifest": "/tmp/apkfuzz-runtime-feasibility-20261021/capture/manifest.json",
+          "entry": "id:000006,src:000000"
+        }
+      ],
+      "mode": "manifest-bitflip",
+      "seed": "20261021",
+      "iteration": "6",
+      "generation": "1",
+      "edit_count": 1,
+      "origin_path": "/home/sahar/Projects/droidbot/droidbot/resources/bench_apps/app-lister.apk",
+      "origin_sha256": "6f6155c520750d7a12debfdf38483c25333b7053fd397830cdcb02df48a18b4f",
+      "expected_origin_sha256": "6f6155c520750d7a12debfdf38483c25333b7053fd397830cdcb02df48a18b4f",
+      "mutant_sha256": "48bf546df91dd3b9f75d31181c213a8686da4c96769904d43064a0f8b2581420",
+      "mutant_size": 3238532,
+      "live_apk_match": "match",
+      "capture_integrity": "match",
+      "zip": {
+        "status": "bad_entry",
+        "entry": "AndroidManifest.xml",
+        "entries": 893
+      },
+      "manifest": {
+        "status": "not_checked"
+      },
+      "signature": {
+        "status": "invalid",
+        "exit_code": 1,
+        "detail": "DOES NOT VERIFY ERROR: APK Signature Scheme v2 signer #1: APK integrity check failed. CHUNKED_SHA256 digest mismatch. Expected: <83ee71340d037b9f87092fd5b8f1961dada5b4e956a1191115d7d2c5eb932730>, actual: <a728100efc4c78a411ff29416e5fde1c466816991ca7cd05fb5f8c191de753ac>"
+      },
+      "preflight": "blocked",
+      "reasons": [
+        "zip_invalid",
+        "manifest_unverified",
+        "signature_invalid_or_unverified"
+      ]
+    }
+  ]
+}

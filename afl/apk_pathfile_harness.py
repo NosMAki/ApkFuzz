@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
+"""AFL target for ZIP/path-file handling, not F-Droid execution.
+
+Coverage and saved crashes from this process concern Python and ``zipfile``.
+They do not measure Android app code, UI coverage, or F-Droid defects. A valid
+return only clears this narrow archive check; Android install/launch and
+signature admission are separate downstream gates.
+"""
 
 import sys
 import zipfile
+import zlib
 from pathlib import Path
 
-try:
-    import afl
-except ModuleNotFoundError:
-    class afl:
-        @staticmethod
-        def init():
-            return None
+from afl import init as afl_init  # Reject an empty local `afl` namespace package.
+
+MAX_MANIFEST_BYTES = 16 * 1024 * 1024
 
 
 def read_apk_path(pathfile):
@@ -41,19 +45,28 @@ def touch_optional_entry(apk, name):
 def test_pathfile(pathfile):
     apk_path = read_apk_path(pathfile)
     if apk_path is None:
-        return
+        return False
 
     try:
         with zipfile.ZipFile(apk_path, "r") as apk:
             names = apk.namelist()
             if "AndroidManifest.xml" not in names:
-                return
+                return False
 
-            touch_optional_entry(apk, "AndroidManifest.xml")
+            # Read to EOF: zipfile checks the entry CRC only after the complete
+            # manifest is consumed. A four-byte probe admitted broken deflate
+            # streams and CRC mismatches into the AFL queue.
+            with apk.open("AndroidManifest.xml", "r") as entry:
+                manifest = entry.read(MAX_MANIFEST_BYTES + 1)
+            if len(manifest) > MAX_MANIFEST_BYTES:
+                return False
+            if not manifest.startswith(b"\x03\x00\x08\x00"):
+                return False
             touch_optional_entry(apk, "classes.dex")
             touch_optional_entry(apk, "resources.arsc")
-    except (OSError, RuntimeError, zipfile.BadZipFile, zipfile.LargeZipFile):
-        return
+    except (OSError, RuntimeError, zipfile.BadZipFile, zipfile.LargeZipFile, zlib.error):
+        return False
+    return True
 
 
 def main():
@@ -61,7 +74,7 @@ def main():
         print("Usage: apk_pathfile_harness.py <path_file>")
         sys.exit(1)
 
-    afl.init()
+    afl_init()
     test_pathfile(sys.argv[1])
 
 
